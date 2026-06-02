@@ -76,9 +76,13 @@ function PlayResolver({ params }: { params: PageProps<"/play/[mode]">["params"] 
 
 function Game({ modeId, year }: { modeId: string; year?: number }) {
   const mode = getMode(modeId)!;
-  // Semilla generada en cliente tras montar (no en render SSR).
+  // Semilla generada en cliente tras montar (no en render SSR), para evitar
+  // un mismatch de hidratación: las preguntas dependen del RNG sembrado, así
+  // que la semilla debe fijarse solo en el cliente. Es el patrón recomendado
+  // por React para leer valores solo-de-navegador (Date.now) dentro de un effect.
   const [seed, setSeed] = useState<number | null>(null);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- semilla solo-cliente intencional
     setSeed(Date.now() >>> 0);
   }, []);
 
