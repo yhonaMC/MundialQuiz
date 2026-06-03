@@ -10,7 +10,7 @@ const poppins = Poppins({
   weight: ["400", "600", "700", "800", "900"],
 });
 
-const ADSENSE_CLIENT = "ca-pub-1571636367391591";
+const ADSENSE_CLIENT = "ca-pub-4390753504297076";
 const GTM_ID = "GTM-MQLW2PG3";
 
 export const metadata: Metadata = {
