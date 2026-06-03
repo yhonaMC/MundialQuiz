@@ -145,11 +145,13 @@ export default function MatchPage() {
     });
   }, [onEvent, isHost, hostReveal]);
 
-  // El anfitrión arranca la primera ronda cuando el canal está listo.
+  // El anfitrión arranca la primera ronda cuando el canal está listo
+  // (con un margen para que el resto se suscriba y no se pierda la ronda 1).
   useEffect(() => {
     if (isHost && ready && !startedRef.current) {
       startedRef.current = true;
-      startRound(0);
+      const t = setTimeout(() => startRound(0), 1000);
+      return () => clearTimeout(t);
     }
   }, [isHost, ready, startRound]);
 
@@ -404,14 +406,28 @@ function IncognitaView({ round, phase, myDone, onResult }: { round: Extract<Roun
   const [guesses, setGuesses] = useState<string[]>([]);
   const [current, setCurrent] = useState("");
   const [done, setDone] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
   const word = round.word;
+
+  const flash = (m: string) => {
+    setAviso(m);
+    window.setTimeout(() => setAviso(null), 1500);
+  };
 
   const submit = useCallback(() => {
     if (done) return;
-    if (current.length !== word.length || !isValidGuess(current)) return;
+    if (current.length < word.length) {
+      flash("Faltan letras");
+      return;
+    }
+    if (!isValidGuess(current)) {
+      flash("No está en la lista");
+      return;
+    }
     const next = [...guesses, current];
     setGuesses(next);
     setCurrent("");
+    setAviso(null);
     const won = normalize(current) === word;
     if (won || next.length >= MAX_ATTEMPTS) {
       setDone(true);
@@ -437,6 +453,7 @@ function IncognitaView({ round, phase, myDone, onResult }: { round: Extract<Roun
   return (
     <div className="flex w-full max-w-md flex-col items-center gap-3">
       <span className="rounded-full bg-white/10 px-4 py-1 text-sm font-bold text-[var(--color-gray-light)]">{round.hint}</span>
+      {aviso && <span className="rounded-xl bg-white px-3 py-1 text-sm font-extrabold text-[var(--color-navy-deep)]">{aviso}</span>}
       <Board answer={word} guesses={guesses} current={current} />
       {phase === "reveal" ? (
         <p className="text-sm font-bold">La palabra era <b className="text-[var(--color-green)]">{word}</b></p>
