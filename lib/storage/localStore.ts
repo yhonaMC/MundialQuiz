@@ -100,3 +100,20 @@ export function addSeenIds(ids: string[], max = 200, storage?: StorageLike): Sav
   saveData(next, storage);
   return next;
 }
+
+// Registra un resultado de tanda de penales. Solo para actualizar highScores["penales"].
+// El modo "penales" es sólo binario (ganó/perdió); highScores["penales"] acumula victorias.
+export function recordPenales(nivel: string, won: boolean, storage?: StorageLike): SaveData {
+  if (!won) return loadData(storage);
+  const data = loadData(storage);
+  const modeId = `penales-${nivel}`;
+  const next: SaveData = {
+    ...data,
+    highScores: {
+      ...data.highScores,
+      [modeId]: (data.highScores[modeId] ?? 0) + 1,
+    },
+  };
+  saveData(next, storage);
+  return next;
+}
