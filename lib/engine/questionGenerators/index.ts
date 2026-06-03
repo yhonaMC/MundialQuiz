@@ -1,5 +1,3 @@
-import type { Question, Tournament } from '@/lib/data/types';
-import type { Rng } from '@/lib/engine/rng';
 import { NATIONAL_TEAMS } from '@/lib/data/teams';
 import { makeOptions, type Generator } from './core';
 import { playerCountry, playerCountryHard } from './playerCountry';

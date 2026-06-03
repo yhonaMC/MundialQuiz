@@ -42,7 +42,6 @@ export function usePenales(nivel: Nivel, seed: number) {
     if (startedRef.current) return;
     startedRef.current = true;
     dispatch({ type: "START" });
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- primera pregunta del cliente (RNG sembrado post-mount)
     setQuestion(pickQuestion(false));
   }, [pickQuestion]);
 
