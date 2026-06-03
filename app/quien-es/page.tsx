@@ -135,11 +135,11 @@ export default function QuienEsPage() {
       ) : (
         <>
           {/* Foto */}
-          <div className="w-full max-w-[16rem] overflow-hidden rounded-3xl bg-white/5 shadow-2xl ring-1 ring-white/10">
+          <div className="h-44 w-44 overflow-hidden rounded-3xl bg-white/5 shadow-2xl ring-1 ring-white/10 sm:h-52 sm:w-52">
             {/* eslint-disable-next-line @next/next/no-img-element -- thumbnails locales en /public */}
-            <img src={ronda.player.foto!.archivo} alt="¿Quién es este jugador?" className="aspect-square w-full object-cover" />
+            <img src={ronda.player.foto!.archivo} alt="¿Quién es este jugador?" className="h-full w-full object-cover" />
           </div>
-          <p className="-mt-1 max-w-[16rem] text-center text-[10px] text-[var(--color-gray-light)]/50">
+          <p className="-mt-1 max-w-[13rem] text-center text-[10px] text-[var(--color-gray-light)]/50">
             Foto: {ronda.player.foto!.autor} · {ronda.player.foto!.licencia}
           </p>
 
