@@ -85,6 +85,17 @@ export const MODES: GameMode[] = [
     questionCount: 10,
     scoring: { base: 150, speedBonusMax: 0, streakMultiplierStep: 0.2 },
   },
+  {
+    id: 'adivina-pais',
+    name: 'Adivina el País',
+    icon: 'flag',
+    description: '¿Para qué selección jugó? Demuestra cuánto conoces a los mundialistas.',
+    tournamentFilter: 'all',
+    difficultyCurve: 'adaptive',
+    questionCount: 10,
+    generatorIds: ['player-country', 'player-country-hard'],
+    scoring: { ...defaultScoring },
+  },
 ];
 
 export function getMode(id: string): GameMode | undefined {

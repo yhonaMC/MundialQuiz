@@ -135,7 +135,7 @@ export default function Home() {
           badge="Trivia"
           accent="var(--color-green)"
           title="Quiz"
-          subtitle="6 modos de trivia mundialista. Responde, suma puntos y supera tus rachas."
+          subtitle="7 modos de trivia mundialista. Responde, suma puntos y supera tus rachas."
           visual={<QuizStack />}
         />
         <GameCard

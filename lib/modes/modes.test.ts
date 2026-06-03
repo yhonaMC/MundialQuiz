@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { MODES, getMode } from '@/lib/modes/modes';
 
 describe('MODES', () => {
-  it('defines exactly the 6 Group-A modes', () => {
+  it('defines exactly the 7 modes', () => {
     expect(MODES.map((m) => m.id).sort()).toEqual(
-      ['contrarreloj', 'escalera', 'experto', 'maraton', 'por-mundial', 'supervivencia'].sort(),
+      ['adivina-pais', 'contrarreloj', 'escalera', 'experto', 'maraton', 'por-mundial', 'supervivencia'].sort(),
     );
   });
 
@@ -35,5 +35,9 @@ describe('MODES', () => {
 
   it('getMode returns undefined for unknown ids', () => {
     expect(getMode('nope')).toBeUndefined();
+  });
+
+  it('adivina-pais restricts to the player-country generators', () => {
+    expect(getMode('adivina-pais')!.generatorIds).toEqual(['player-country', 'player-country-hard']);
   });
 });

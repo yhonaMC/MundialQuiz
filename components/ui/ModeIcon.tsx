@@ -1,4 +1,4 @@
-import { Brain, Globe, Heart, Timer, TrendingUp, Trophy, type LucideIcon } from "lucide-react";
+import { Brain, Flag, Globe, Heart, Timer, TrendingUp, Trophy, type LucideIcon } from "lucide-react";
 
 // Registro que traduce la clave semántica de cada modo (GameMode.icon)
 // a un icono de lucide-react. Único punto donde el dato se acopla a la librería.
@@ -9,6 +9,7 @@ const REGISTRY: Record<string, LucideIcon> = {
   ladder: TrendingUp, // "escalera" → progresión ascendente
   globe: Globe,
   brain: Brain,
+  flag: Flag,
 };
 
 export function ModeIcon({
