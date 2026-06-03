@@ -9,9 +9,9 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "MundialTrivia — Juegos de los Mundiales",
+  title: "JuegaMundial — Juegos de los Mundiales",
   description:
-    "Juegos de los Mundiales 1930–2026: quiz de trivia y La Incógnita Mundialera, el juego diario de adivinar el jugador o la selección oculta.",
+    "JuegaMundial: juegos de los Mundiales 1930–2026 — quiz de trivia, La Incógnita Mundialera, La Conexión y ¿Quién es?",
 };
 
 export default function RootLayout({

@@ -112,7 +112,7 @@ export default function Home() {
         transition={{ type: "spring", stiffness: 300, damping: 14 }}
         className="text-center text-5xl font-black uppercase italic sm:text-6xl"
       >
-        Mundial<span className="text-[var(--color-green)]">Trivia</span>
+        Juega<span className="text-[var(--color-green)]">Mundial</span>
       </motion.h1>
       <motion.p
         initial={{ opacity: 0, y: -10 }}

@@ -22,7 +22,7 @@ const opt = (name, def) => {
 const LIMIT = Number(opt("limit", "0")) || Infinity;
 const DELAY = Number(opt("delay", "800"));
 const CONTACT = process.env.WIKI_CONTACT || "rlozada808@gmail.com";
-const UA = `MundialTrivia/1.0 (${CONTACT}) image-fetch`;
+const UA = `JuegaMundial/1.0 (${CONTACT}) image-fetch`;
 
 const FOOTBALLER = "Q937857"; // association football player
 const CACHE_DIR = "scripts/.cache";
