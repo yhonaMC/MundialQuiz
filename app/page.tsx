@@ -31,6 +31,15 @@ function Tokens() {
   );
 }
 
+// Silueta misteriosa para "¿Quién es?".
+function MysteryFace() {
+  return (
+    <span className="grid h-16 w-16 place-items-center rounded-full bg-white/15 text-4xl font-black text-white ring-2 ring-white/30">
+      ?
+    </span>
+  );
+}
+
 function MiniTiles() {
   const tiles: [string, string, string][] = [
     ["M", "var(--color-green)", "var(--color-navy-deep)"],
@@ -105,6 +114,13 @@ export default function Home() {
           title={<>La Conexión<br />Mundialera</>}
           subtitle="6 jugadores, 3 comparten algo. Descubre la conexión y selecciónalos."
           visual={<Tokens />}
+        />
+        <GameCard
+          href="/quien-es"
+          accent="var(--color-green)"
+          title="¿Quién es?"
+          subtitle="Adivina el jugador por su foto entre varias opciones. Suma puntos y rachas."
+          visual={<MysteryFace />}
         />
       </motion.div>
     </main>
