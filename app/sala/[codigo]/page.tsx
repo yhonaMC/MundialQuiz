@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Copy, Crown, Play, Wifi, WifiOff } from "lucide-react";
 import { MemphisBackground } from "@/components/ui/MemphisBackground";
@@ -24,10 +24,10 @@ function Avatar({ nombre, color }: { nombre: string; color: string }) {
 export default function SalaPage() {
   const params = useParams<{ codigo: string }>();
   const codigo = (params.codigo || "").toUpperCase();
+  const router = useRouter();
 
   const [perfil, setPerfil] = useState({ nombre: "Tú", color: AVATAR_COLORS[0] });
   const [seleccion, setSeleccion] = useState(GAME_ENTRIES[0][0]);
-  const [started, setStarted] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
@@ -42,9 +42,11 @@ export default function SalaPage() {
   useEffect(() => {
     onEvent((type, payload) => {
       if (type === "select" && typeof payload.game === "string") setSeleccion(payload.game);
-      if (type === "start" && typeof payload.game === "string") setStarted(payload.game);
+      if (type === "start" && typeof payload.game === "string") {
+        router.push(`/sala/${codigo}/jugar?game=${payload.game}${isHost ? "&host=1" : ""}`);
+      }
     });
-  }, [onEvent]);
+  }, [onEvent, router, codigo, isHost]);
 
   const flash = (m: string) => {
     setToast(m);
@@ -67,7 +69,6 @@ export default function SalaPage() {
   const empezar = () => {
     if (!isHost) return;
     send("start", { game: seleccion });
-    setStarted(seleccion);
   };
 
   // Jugadores a mostrar (si aún no conecta, muéstrate a ti mismo).
@@ -83,23 +84,6 @@ export default function SalaPage() {
         {toast && (
           <motion.div initial={{ opacity: 0, y: -16, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="fixed left-1/2 top-20 z-50 -translate-x-1/2 rounded-2xl bg-white px-5 py-3 font-extrabold text-[var(--color-navy-deep)] shadow-2xl">
             {toast}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Overlay de inicio sincronizado */}
-      <AnimatePresence>
-        {started && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-black/70 p-6 text-center backdrop-blur-sm">
-            <motion.div initial={{ scale: 0.8, y: 10 }} animate={{ scale: 1, y: 0 }} transition={{ type: "spring", stiffness: 300, damping: 16 }} className="flex flex-col items-center gap-3 rounded-3xl bg-[var(--color-navy)] px-8 py-7 ring-1 ring-white/10">
-              <Play className="h-10 w-10 text-[var(--color-green)]" />
-              <p className="text-2xl font-black uppercase italic">¡Vamos!</p>
-              <p className="text-[var(--color-gray-light)]">Empezando <b className="text-white">{GAMES[started]?.nombre}</b> con {lista.length} jugador{lista.length === 1 ? "" : "es"}</p>
-              <p className="text-xs text-[var(--color-gray-light)]/60">(El juego sincronizado dentro de la sala es el siguiente paso)</p>
-              <button onClick={() => setStarted(null)} className="mt-1 rounded-2xl bg-white/10 px-5 py-2 text-sm font-extrabold ring-1 ring-white/15">
-                Volver a la sala
-              </button>
-            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
