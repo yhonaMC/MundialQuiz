@@ -26,7 +26,14 @@ export interface IncognitaRound {
   word: string;
   hint: string;
 }
-export type Round = OptionsRound | ConexionRound | IncognitaRound;
+export interface PenalesRound {
+  kind: "penales";
+  prompt: string;
+  sub?: string;
+  options: string[];
+  answer: number;
+}
+export type Round = OptionsRound | ConexionRound | IncognitaRound | PenalesRound;
 
 export const TOTAL_ROUNDS = 5;
 
@@ -54,13 +61,21 @@ export function buildRound(game: string): Round {
     return { kind: "incognita", word: a.word, hint: a.hint };
   }
 
+  if (game === "penales") {
+    return { kind: "penales", ...pickOptionsQuestion() };
+  }
+
   // quiz (por defecto): primera pregunta con opciones (no numérica).
+  return { kind: "options", ...pickOptionsQuestion() };
+}
+
+// Pregunta de opción múltiple (no numérica) del motor de trivia, dificultad media.
+function pickOptionsQuestion(): { prompt: string; sub?: string; options: string[]; answer: number } {
   const rng = createRng((Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0);
   for (let i = 0; i < 25; i++) {
     const q = generateQuestion({ tournaments: TOURNAMENTS, targetDifficulty: 2, tournamentFilter: "all", seenIds: [], rng });
-    if (q.format !== "number" && q.options && q.answerIndex != null) {
+    if (q.format !== "number" && q.options && q.options.length === 4 && q.answerIndex != null) {
       return {
-        kind: "options",
         prompt: q.prompt,
         sub: q.tournamentYear ? `Mundial ${q.tournamentYear}` : undefined,
         options: q.options,
@@ -68,7 +83,7 @@ export function buildRound(game: string): Round {
       };
     }
   }
-  return { kind: "options", prompt: "—", options: ["A", "B", "C", "D"], answer: 0 };
+  return { prompt: "—", options: ["A", "B", "C", "D"], answer: 0 };
 }
 
 // Puntos por respuesta: base + bonus por velocidad (cuanto antes, más).
@@ -76,4 +91,15 @@ export function scoreFor(correct: boolean, elapsedMs: number, roundMs: number): 
   if (!correct) return 0;
   const speed = Math.max(0, 1 - elapsedMs / roundMs);
   return 100 + Math.round(100 * speed);
+}
+
+export const PENALES_MAX_ROUNDS = 15;
+
+// ¿Sigue la tanda de penales tras completar la ronda nextIdx-1?
+// 5 rondas fijas; después, muerte súbita mientras haya empate en la cima (tope de seguridad).
+export function penalesContinua(goles: number[], nextIdx: number): boolean {
+  if (nextIdx < TOTAL_ROUNDS) return true;
+  if (nextIdx >= PENALES_MAX_ROUNDS) return false;
+  const sorted = [...goles].sort((a, b) => b - a);
+  return sorted.length >= 2 && sorted[0] === sorted[1];
 }
