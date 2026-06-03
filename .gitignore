@@ -46,3 +46,6 @@ next-env.d.ts
 
 # caché de scripts (imágenes)
 /scripts/.cache/
+
+# supabase db password (local, no commitear)
+.supabase-db-password.txt
