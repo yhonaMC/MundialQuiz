@@ -40,3 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .superpowers/
+
+# raw datasets (processed into lib/incognita/data; not bundled)
+/data-sources/
