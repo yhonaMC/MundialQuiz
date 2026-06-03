@@ -102,6 +102,30 @@ function QuienEsMini() {
   );
 }
 
+// Penales: fila de tiros (gol/fallo/pendiente) + portería.
+function PenalesMini() {
+  const shots: (boolean | undefined)[] = [true, true, false, true, undefined];
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <div className="flex gap-1">
+        {shots.map((g, i) => (
+          <span
+            key={i}
+            className="grid h-6 w-6 place-items-center rounded-full text-[11px] font-black text-white"
+            style={{
+              backgroundColor:
+                g === undefined ? "rgba(255,255,255,0.15)" : g ? "var(--color-green)" : "var(--color-red)",
+            }}
+          >
+            {g === undefined ? "" : g ? "⚽" : "✕"}
+          </span>
+        ))}
+      </div>
+      <span className="text-2xl">🥅</span>
+    </div>
+  );
+}
+
 export default function Home() {
   return (
     <main className="relative flex flex-1 flex-col items-center px-4 py-12">
@@ -158,6 +182,14 @@ export default function Home() {
           title="¿Quién es?"
           subtitle="Adivina el jugador por su foto entre varias opciones. Suma puntos y rachas."
           visual={<QuienEsMini />}
+        />
+        <GameCard
+          href="/penales"
+          badge="vs IA"
+          accent="var(--color-red)"
+          title="Penales Quiz"
+          subtitle="Cada pregunta es un penal. Gana la tanda al mejor de 5 contra la IA."
+          visual={<PenalesMini />}
         />
       </motion.div>
 
