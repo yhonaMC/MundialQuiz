@@ -1,34 +1,83 @@
-import Link from "next/link";
-import { MODES } from "@/lib/modes/modes";
+"use client";
+import { motion } from "framer-motion";
 import { MemphisBackground } from "@/components/ui/MemphisBackground";
-import { ModeCard } from "@/components/ModeCard";
-import { TOURNAMENT_YEARS } from "@/lib/data";
+import { GameCard } from "@/components/GameCard";
+
+const grid = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.12, delayChildren: 0.15 } },
+};
+
+// Mini casillas estilo Wordle para la card de La Incógnita.
+function MiniTiles() {
+  const tiles: [string, string, string][] = [
+    ["M", "var(--color-green)", "var(--color-navy-deep)"],
+    ["E", "var(--color-amber)", "var(--color-navy-deep)"],
+    ["S", "rgba(255,255,255,0.25)", "#fff"],
+  ];
+  return (
+    <div className="flex gap-1.5">
+      {tiles.map(([l, bg, fg], i) => (
+        <span
+          key={i}
+          className="grid h-11 w-11 place-items-center rounded-lg text-xl font-black"
+          style={{ backgroundColor: bg, color: fg }}
+        >
+          {l}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 export default function Home() {
   return (
-    <main className="relative flex flex-1 flex-col items-center px-4 py-10">
+    <main className="relative flex flex-1 flex-col items-center px-4 py-12">
       <MemphisBackground />
 
-      <h1 className="text-center text-4xl font-black sm:text-5xl">
-        Mundial<span className="text-[var(--color-gold)]">Quiz</span>
-      </h1>
-      <p className="mt-2 text-center text-white/70">Trivia de los Mundiales 1998 – 2022</p>
+      <motion.h1
+        initial={{ opacity: 0, y: -30, scale: 0.9 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ type: "spring", stiffness: 300, damping: 14 }}
+        className="text-center text-5xl font-black uppercase italic sm:text-6xl"
+      >
+        Mundial<span className="text-[var(--color-green)]">Trivia</span>
+      </motion.h1>
+      <motion.p
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.18 }}
+        className="mt-2 text-center text-[var(--color-gray-light)]/80"
+      >
+        Juegos de los Mundiales · 1930 – 2026
+      </motion.p>
 
-      <div className="mt-8 grid w-full max-w-3xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {MODES.map((mode) => {
-          // "Por Mundial" lleva primero a elegir el año.
-          const href = mode.id === "por-mundial" ? "/play/por-mundial" : `/play/${mode.id}`;
-          return <ModeCard key={mode.id} mode={mode} href={href} />;
-        })}
-      </div>
-
-      <p className="mt-10 text-xs text-white/50">
-        Ediciones disponibles: {TOURNAMENT_YEARS.join(" · ")}
-      </p>
-
-      <Link href="#" className="sr-only">
-        Inicio
-      </Link>
+      <motion.div
+        variants={grid}
+        initial="hidden"
+        animate="show"
+        className="mt-10 grid w-full max-w-2xl gap-5 sm:grid-cols-2"
+      >
+        <GameCard
+          href="/quiz"
+          badge="Trivia"
+          accent="var(--color-green)"
+          title="Quiz"
+          subtitle="6 modos de trivia mundialista. Responde, suma puntos y supera tus rachas."
+          visual={
+            <span className="grid h-16 w-16 place-items-center rounded-full bg-white text-4xl font-black italic text-[var(--color-green)]">
+              ?
+            </span>
+          }
+        />
+        <GameCard
+          href="/incognita"
+          accent="var(--color-amber)"
+          title={<>La Incógnita<br />Mundialera</>}
+          subtitle="Adivina el jugador o la selección oculta en 6 intentos. ¡Una distinta cada vez!"
+          visual={<MiniTiles />}
+        />
+      </motion.div>
     </main>
   );
 }

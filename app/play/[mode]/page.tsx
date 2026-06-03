@@ -1,6 +1,8 @@
 "use client";
 import { Suspense, use, useEffect, useState } from "react";
 import Link from "next/link";
+import { AnimatePresence, motion } from "framer-motion";
+import { Coins, Shuffle, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { getMode, type GameMode } from "@/lib/modes/modes";
 import { getTournament, TOURNAMENT_YEARS } from "@/lib/data";
@@ -9,6 +11,8 @@ import { MemphisBackground } from "@/components/ui/MemphisBackground";
 import { QuestionCard } from "@/components/QuestionCard";
 import { Hud } from "@/components/Hud";
 import { Button } from "@/components/ui/Button";
+import { Confetti } from "@/components/ui/Confetti";
+import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 
 function LoadingScreen() {
   return (
@@ -34,6 +38,7 @@ function PlayResolver({ params }: { params: PageProps<"/play/[mode]">["params"] 
   const searchParams = useSearchParams();
   const yearParam = searchParams.get("year");
   const year = yearParam ? Number(yearParam) : undefined;
+  const mixed = searchParams.get("mix") === "1";
 
   if (!mode) {
     return (
@@ -45,28 +50,82 @@ function PlayResolver({ params }: { params: PageProps<"/play/[mode]">["params"] 
     );
   }
 
-  // "Por Mundial" sin año → mostrar selector de torneo.
-  if (mode.id === "por-mundial" && !year) {
+  // Antes de empezar cualquier modo: elegir Mundial (Mezclado = todos los años, o uno).
+  const chosen = mixed || year !== undefined;
+  if (!chosen) {
     return (
       <main className="relative flex flex-1 flex-col items-center justify-center gap-6 p-6">
         <MemphisBackground />
-        <h1 className="text-2xl font-black">Elige un Mundial</h1>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <motion.h1
+          initial={{ opacity: 0, y: -20, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ type: "spring", stiffness: 300, damping: 14 }}
+          className="text-center text-3xl font-black uppercase italic"
+        >
+          {mode.name}
+        </motion.h1>
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.15 }}
+          className="text-center text-[var(--color-gray-light)]/80"
+        >
+          ¿De qué Mundial quieres las preguntas?
+        </motion.p>
+
+        {/* Mezclado: todos los años */}
+        <motion.div
+          initial={{ opacity: 0, y: 16, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ type: "spring", stiffness: 320, damping: 16, delay: 0.1 }}
+          whileHover={{ y: -4, scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          className="w-full max-w-md"
+        >
+          <Link
+            href={`/play/${mode.id}?mix=1`}
+            className="flex items-center justify-center gap-2 rounded-3xl bg-[var(--color-green)] px-6 py-5 text-center text-lg font-black uppercase italic text-[var(--color-navy-deep)] shadow-xl"
+          >
+            <Shuffle className="h-5 w-5" /> Mezclado · todos los años
+          </Link>
+        </motion.div>
+
+        <span className="text-xs font-bold uppercase tracking-widest text-[var(--color-gray-light)]/50">
+          o elige una edición
+        </span>
+
+        <motion.div
+          variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05, delayChildren: 0.05 } } }}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+        >
           {TOURNAMENT_YEARS.map((y) => {
             const t = getTournament(y)!;
             return (
-              <Link
+              <motion.div
                 key={y}
-                href={`/play/por-mundial?year=${y}`}
-                className="rounded-2xl bg-[var(--color-indigo-base)] px-5 py-4 text-center font-black shadow-lg ring-1 ring-white/10 hover:scale-105"
+                variants={{
+                  hidden: { opacity: 0, y: 20, scale: 0.9 },
+                  show: { opacity: 1, y: 0, scale: 1, transition: { type: "spring", stiffness: 360, damping: 18 } },
+                }}
+                whileHover={{ y: -5, scale: 1.05 }}
+                whileTap={{ scale: 0.96 }}
               >
-                <div className="text-2xl text-[var(--color-gold)]">{y}</div>
-                <div className="text-xs text-white/60">{t.hosts.join(", ")}</div>
-              </Link>
+                <Link
+                  href={`/play/${mode.id}?year=${y}`}
+                  className="block rounded-2xl bg-[var(--color-navy)] px-5 py-4 text-center font-black shadow-lg ring-1 ring-white/10"
+                >
+                  <div className="text-2xl text-[var(--color-green)]">{y}</div>
+                  <div className="text-xs text-[var(--color-gray-light)]/70">{t.hosts.join(", ")}</div>
+                </Link>
+              </motion.div>
             );
           })}
-        </div>
-        <Link href="/" className="text-sm underline text-white/60">Volver</Link>
+        </motion.div>
+        <Link href="/quiz" className="text-sm underline text-[var(--color-gray-light)]/70">
+          Volver
+        </Link>
       </main>
     );
   }
@@ -111,26 +170,54 @@ function GameInner({
     seed,
     year,
   );
+  const [confirmExit, setConfirmExit] = useState(false);
 
   if (state.status === "gameover") {
     const answered = state.history.length;
     const correct = state.history.filter((h) => h.correct).length;
+    const won = correct > 0;
     return (
       <main className="relative flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
         <MemphisBackground />
-        <h1 className="text-3xl font-black">{state.cashedOut ? "¡Te retiraste a tiempo! 🪙" : "¡Fin del juego!"}</h1>
-        <p className="text-6xl font-black text-[var(--color-gold)]">{state.score}</p>
-        <p className="text-white/70">
+        {won && <Confetti pieces={48} />}
+        <motion.h1
+          initial={{ opacity: 0, y: -24, scale: 0.85 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ type: "spring", stiffness: 300, damping: 14 }}
+          className="flex items-center justify-center gap-2 text-3xl font-black"
+        >
+          {state.cashedOut && <Coins className="h-7 w-7 text-[var(--color-green)]" aria-hidden />}
+          {state.cashedOut ? "¡Te retiraste a tiempo!" : "¡Fin del juego!"}
+        </motion.h1>
+        <motion.p
+          initial={{ opacity: 0, scale: 0.4 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: "spring", stiffness: 260, damping: 12, delay: 0.15 }}
+          className="text-6xl font-black text-[var(--color-green)]"
+        >
+          <AnimatedNumber value={state.score} />
+        </motion.p>
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
+          className="text-[var(--color-gray-light)]/80"
+        >
           {correct} / {answered} aciertos
-        </p>
-        <div className="mt-4 flex gap-3">
+        </motion.p>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5, type: "spring", stiffness: 300, damping: 18 }}
+          className="mt-4 flex gap-3"
+        >
           <Link href={`/play/${mode.id}${year ? `?year=${year}` : ""}`}>
             <Button variant="primary">Jugar de nuevo</Button>
           </Link>
           <Link href="/">
             <Button variant="ghost">Inicio</Button>
           </Link>
-        </div>
+        </motion.div>
       </main>
     );
   }
@@ -147,6 +234,16 @@ function GameInner({
   return (
     <main className="relative flex flex-1 flex-col items-center gap-5 px-4 py-8">
       <MemphisBackground />
+
+      <div className="flex w-full max-w-xl items-center">
+        <button
+          onClick={() => setConfirmExit(true)}
+          className="flex items-center gap-1 text-sm font-bold text-[var(--color-gray-light)]/80 hover:text-white"
+        >
+          <X className="h-4 w-4" aria-hidden /> Salir
+        </button>
+      </div>
+
       <Hud
         score={state.score}
         streak={state.streak}
@@ -165,10 +262,45 @@ function GameInner({
       />
 
       {allowCashOut && state.status === "question" && state.score > 0 && (
-        <Button variant="gold" onClick={cashOut}>
-          Retirarme con {state.score} pts 🪙
+        <Button variant="accent" onClick={cashOut} className="flex items-center gap-2">
+          <Coins className="h-5 w-5" aria-hidden /> Retirarme con {state.score} pts
         </Button>
       )}
+
+      {/* Modal de confirmación para salir */}
+      <AnimatePresence>
+        {confirmExit && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setConfirmExit(false)}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 12 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 320, damping: 22 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm rounded-3xl bg-[var(--color-navy)] p-6 text-center shadow-2xl ring-1 ring-white/10"
+            >
+              <p className="text-xl font-black">¿Salir del quiz?</p>
+              <p className="mt-1 text-sm text-[var(--color-gray-light)]/80">
+                Perderás el progreso de esta partida.
+              </p>
+              <div className="mt-5 flex justify-center gap-3">
+                <Button variant="ghost" onClick={() => setConfirmExit(false)}>
+                  Seguir jugando
+                </Button>
+                <Link href="/quiz">
+                  <Button variant="accent">Salir</Button>
+                </Link>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }

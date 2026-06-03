@@ -35,9 +35,9 @@ export function NumberInput({
         onChange={(e) => setValue(e.target.value)}
         placeholder="Tu respuesta…"
         aria-label={question.prompt}
-        className="w-full rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-lg font-bold text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[var(--color-cyan-pop)]"
+        className="w-full rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-lg font-bold text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[var(--color-green)]"
       />
-      <Button type="submit" variant="gold" disabled={disabled || value === ""}>
+      <Button type="submit" variant="primary" disabled={disabled || value === ""}>
         OK
       </Button>
     </form>

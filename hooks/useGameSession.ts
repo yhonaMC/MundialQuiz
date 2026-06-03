@@ -7,6 +7,7 @@ import { sessionReducer, initialSessionState } from "@/lib/engine/gameSession";
 import { scoreAnswer, numericCloseness } from "@/lib/engine/scoring";
 import { nextDifficulty } from "@/lib/engine/difficulty";
 import { loadData, recordGame, addSeenIds } from "@/lib/storage/localStore";
+import { sfx } from "@/lib/sound";
 import type { GameMode } from "@/lib/modes/modes";
 import type { Question } from "@/lib/data/types";
 import type { FeedbackInfo } from "@/components/QuestionCard";
@@ -105,6 +106,8 @@ export function useGameSession(mode: GameMode, seed: number, tournamentOverride?
       } else {
         correct = raw === q.answerIndex;
       }
+      // exacto: respuesta numérica idéntica (o acierto directo en no-numéricas).
+      const exact = q.format === "number" ? raw === q.numericAnswer : correct;
 
       const timeRemainingRatio =
         mode.timer && state.timeRemaining != null ? state.timeRemaining / mode.timer.totalSeconds : undefined;
@@ -120,7 +123,9 @@ export function useGameSession(mode: GameMode, seed: number, tournamentOverride?
         closeness,
       });
 
-      setFeedback({ correct, pointsEarned: points });
+      setFeedback({ correct, pointsEarned: points, exact });
+      if (correct) sfx.correct();
+      else sfx.wrong();
       dispatch({ type: "ANSWER", correct, points });
     },
     [mode.scoring, mode.timer, state.currentQuestion, state.status, state.streak, state.timeRemaining],
