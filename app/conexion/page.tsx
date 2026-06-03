@@ -8,6 +8,7 @@ import { Confetti } from "@/components/ui/Confetti";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { PlayerCard, type Reveal } from "@/components/conexion/PlayerCard";
 import { Button } from "@/components/ui/Button";
+import { AdBanner } from "@/components/ui/AdBanner";
 import { generarRonda, type Ronda } from "@/lib/conexion/generate";
 import { sfx } from "@/lib/sound";
 
@@ -203,6 +204,8 @@ export default function ConexionPage() {
           </Link>
         </motion.div>
       )}
+
+      <AdBanner className="mt-6 w-full max-w-md" />
     </main>
   );
 }

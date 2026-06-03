@@ -7,6 +7,7 @@ import { MemphisBackground } from "@/components/ui/MemphisBackground";
 import { Confetti } from "@/components/ui/Confetti";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { Button } from "@/components/ui/Button";
+import { AdBanner } from "@/components/ui/AdBanner";
 import { generarRondaQ, type RondaQ } from "@/lib/quienes/generate";
 import { sfx } from "@/lib/sound";
 
@@ -169,6 +170,8 @@ export default function QuienEsPage() {
           )}
         </>
       )}
+
+      <AdBanner className="mt-6 w-full max-w-sm" />
     </main>
   );
 }

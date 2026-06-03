@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { MODES } from "@/lib/modes/modes";
 import { MemphisBackground } from "@/components/ui/MemphisBackground";
 import { ModeCard } from "@/components/ModeCard";
+import { AdBanner } from "@/components/ui/AdBanner";
 
 const grid = {
   hidden: {},
@@ -54,6 +55,8 @@ export default function QuizPage() {
           return <ModeCard key={mode.id} mode={mode} href={href} index={i} />;
         })}
       </motion.div>
+
+      <AdBanner className="mt-10 w-full max-w-3xl" />
     </main>
   );
 }

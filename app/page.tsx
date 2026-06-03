@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { User } from "lucide-react";
 import { MemphisBackground } from "@/components/ui/MemphisBackground";
 import { GameCard } from "@/components/GameCard";
+import { AdBanner } from "@/components/ui/AdBanner";
 import { conFoto } from "@/lib/db/queries";
 
 const grid = {
@@ -159,6 +160,9 @@ export default function Home() {
           visual={<QuienEsMini />}
         />
       </motion.div>
+
+      {/* Anuncio al pie (no intrusivo; solo aparece si hay slot configurado) */}
+      <AdBanner className="mt-10 w-full max-w-2xl" />
     </main>
   );
 }

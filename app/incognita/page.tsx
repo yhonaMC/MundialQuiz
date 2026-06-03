@@ -12,6 +12,7 @@ import { normalize } from "@/lib/incognita/normalize";
 import { isValidGuess } from "@/lib/incognita/dictionary";
 import { keyboardState } from "@/lib/incognita/keyboardState";
 import { getRandomAnswer } from "@/lib/incognita/daily";
+import { AdBanner } from "@/components/ui/AdBanner";
 import { sfx } from "@/lib/sound";
 import type { Categoria } from "@/lib/incognita/data/answers";
 
@@ -298,6 +299,8 @@ export default function IncognitaPage() {
           />
         </div>
       )}
+
+      <AdBanner className="mt-6 w-full max-w-xl" />
     </main>
   );
 }
