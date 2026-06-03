@@ -28,6 +28,14 @@ export default function RootLayout({
   return (
     <html lang="es" className={`${poppins.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
+        {/* Google AdSense (loader en <head> para la verificación) */}
+        <Script
+          id="adsbygoogle-init"
+          async
+          strategy="beforeInteractive"
+          crossOrigin="anonymous"
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
+        />
         {/* Google Tag Manager */}
         <Script id="gtm" strategy="afterInteractive">
           {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
@@ -49,15 +57,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         </noscript>
 
         {children}
-
-        {/* Google AdSense */}
-        <Script
-          id="adsbygoogle-init"
-          async
-          strategy="afterInteractive"
-          crossOrigin="anonymous"
-          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
-        />
       </body>
     </html>
   );
