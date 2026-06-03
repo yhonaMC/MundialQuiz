@@ -1,45 +1,60 @@
 "use client";
 import { motion } from "framer-motion";
+import { User } from "lucide-react";
 import { MemphisBackground } from "@/components/ui/MemphisBackground";
 import { GameCard } from "@/components/GameCard";
+import { conFoto } from "@/lib/db/queries";
 
 const grid = {
   hidden: {},
   show: { transition: { staggerChildren: 0.12, delayChildren: 0.15 } },
 };
 
-// Mini casillas estilo Wordle para la card de La Incógnita.
-// Tres fichas de jugador: dos "conectadas" (verde) y una fuera (gris).
-function Tokens() {
-  const toks: [string, string][] = [
-    ["var(--color-green)", "var(--color-navy-deep)"],
-    ["var(--color-green)", "var(--color-navy-deep)"],
-    ["rgba(255,255,255,0.25)", "#fff"],
-  ];
+// Fotos disponibles para las miniaturas del menú (estable SSR: PHOTOS es estático).
+const FOTOS = conFoto();
+
+// Avatar: foto del jugador si existe, si no una silueta.
+function Avatar({ src, className, ring }: { src?: string; className: string; ring?: boolean }) {
   return (
-    <div className="flex gap-1.5">
-      {toks.map(([bg, fg], i) => (
+    <span
+      className={`overflow-hidden bg-white/10 ${className} ${
+        ring ? "ring-2 ring-[var(--color-green)]" : "ring-1 ring-white/15"
+      }`}
+    >
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element -- thumbnails locales en /public
+        <img src={src} alt="" className="h-full w-full object-cover" />
+      ) : (
+        <span className="grid h-full w-full place-items-center">
+          <User className="h-1/2 w-1/2 text-white/40" />
+        </span>
+      )}
+    </span>
+  );
+}
+
+// Quiz: stack vertical de opciones con ??? (una correcta).
+function QuizStack() {
+  const rows = [true, false, false];
+  return (
+    <div className="flex w-36 flex-col gap-1.5">
+      {rows.map((hl, i) => (
         <span
           key={i}
-          className="grid h-10 w-10 place-items-center rounded-full text-sm font-black"
-          style={{ backgroundColor: bg, color: fg }}
+          className="rounded-lg px-3 py-1 text-center text-[11px] font-black tracking-widest"
+          style={{
+            backgroundColor: hl ? "var(--color-green)" : "rgba(255,255,255,0.12)",
+            color: hl ? "var(--color-navy-deep)" : "#fff",
+          }}
         >
-          {i + 1}
+          ???
         </span>
       ))}
     </div>
   );
 }
 
-// Silueta misteriosa para "¿Quién es?".
-function MysteryFace() {
-  return (
-    <span className="grid h-16 w-16 place-items-center rounded-full bg-white/15 text-4xl font-black text-white ring-2 ring-white/30">
-      ?
-    </span>
-  );
-}
-
+// La Incógnita: fichas estilo Wordle.
 function MiniTiles() {
   const tiles: [string, string, string][] = [
     ["M", "var(--color-green)", "var(--color-navy-deep)"],
@@ -57,6 +72,31 @@ function MiniTiles() {
           {l}
         </span>
       ))}
+    </div>
+  );
+}
+
+// La Conexión: 6 mini-fotos sin nombre, 3 "conectadas" (anillo verde).
+function ConexionMini() {
+  const f = FOTOS.slice(0, 6);
+  const connected = new Set([0, 2, 4]);
+  return (
+    <div className="grid grid-cols-3 gap-1">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <Avatar key={i} src={f[i]?.foto?.archivo} ring={connected.has(i)} className="h-9 w-9 rounded-lg" />
+      ))}
+    </div>
+  );
+}
+
+// ¿Quién es?: una foto con interrogante.
+function QuienEsMini() {
+  return (
+    <div className="relative">
+      <Avatar src={FOTOS[0]?.foto?.archivo} className="h-16 w-16 rounded-2xl" />
+      <span className="absolute -bottom-1.5 -right-1.5 grid h-7 w-7 place-items-center rounded-full bg-[var(--color-green)] text-lg font-black text-[var(--color-navy-deep)] ring-2 ring-[var(--color-navy)]">
+        ?
+      </span>
     </div>
   );
 }
@@ -95,11 +135,7 @@ export default function Home() {
           accent="var(--color-green)"
           title="Quiz"
           subtitle="6 modos de trivia mundialista. Responde, suma puntos y supera tus rachas."
-          visual={
-            <span className="grid h-16 w-16 place-items-center rounded-full bg-white text-4xl font-black italic text-[var(--color-green)]">
-              ?
-            </span>
-          }
+          visual={<QuizStack />}
         />
         <GameCard
           href="/incognita"
@@ -113,14 +149,14 @@ export default function Home() {
           accent="var(--color-red)"
           title={<>La Conexión<br />Mundialera</>}
           subtitle="6 jugadores, 3 comparten algo. Descubre la conexión y selecciónalos."
-          visual={<Tokens />}
+          visual={<ConexionMini />}
         />
         <GameCard
           href="/quien-es"
           accent="var(--color-green)"
           title="¿Quién es?"
           subtitle="Adivina el jugador por su foto entre varias opciones. Suma puntos y rachas."
-          visual={<MysteryFace />}
+          visual={<QuienEsMini />}
         />
       </motion.div>
     </main>
