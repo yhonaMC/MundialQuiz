@@ -128,7 +128,7 @@ export default function SalaPage() {
         </p>
         <div className="grid grid-cols-2 gap-2.5">
           {GAME_ENTRIES.map(([key, info]) => (
-            <GameTile key={key} nombre={info.nombre} accent={info.accent} selected={seleccion === key} disabled={!isHost} onClick={() => elegir(key)} />
+            <GameTile key={key} game={key} nombre={info.nombre} accent={info.accent} selected={seleccion === key} disabled={!isHost} onClick={() => elegir(key)} />
           ))}
         </div>
       </div>

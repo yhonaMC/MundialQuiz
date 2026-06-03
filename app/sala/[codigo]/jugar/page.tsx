@@ -145,11 +145,13 @@ export default function MatchPage() {
     });
   }, [onEvent, isHost, hostReveal]);
 
-  // El anfitrión arranca la primera ronda cuando el canal está listo.
+  // El anfitrión arranca la primera ronda cuando el canal está listo
+  // (con un margen para que el resto se suscriba y no se pierda la ronda 1).
   useEffect(() => {
     if (isHost && ready && !startedRef.current) {
       startedRef.current = true;
-      startRound(0);
+      const t = setTimeout(() => startRound(0), 1000);
+      return () => clearTimeout(t);
     }
   }, [isHost, ready, startRound]);
 

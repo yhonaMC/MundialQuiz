@@ -28,6 +28,7 @@ export function useRoom(codigo: string, perfil: { nombre: string; color: string 
 
   useEffect(() => {
     if (!supabase || !codigo) return;
+    const client = supabase;
     const id = myId;
     const joinedAt = Date.now();
     const channel = supabase.channel(`sala:${codigo}`, {
@@ -63,7 +64,7 @@ export function useRoom(codigo: string, perfil: { nombre: string; color: string 
 
     return () => {
       setReady(false);
-      channel.unsubscribe();
+      client.removeChannel(channel); // libera el topic para la siguiente página
       chanRef.current = null;
     };
   }, [codigo, perfil.nombre, perfil.color, myId]);
