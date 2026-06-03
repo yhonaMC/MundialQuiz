@@ -47,12 +47,13 @@ export function useGameSession(mode: GameMode, seed: number, tournamentOverride?
         tournamentFilter: filter,
         sequenceIndex,
         seenIds: [...seenRef.current, ...newSeenRef.current],
+        generatorIds: mode.generatorIds,
         rng: rngRef.current,
       });
       newSeenRef.current.push(q.id);
       return q;
     },
-    [filter, mode.difficultyRange, perTournament],
+    [filter, mode.difficultyRange, mode.generatorIds, perTournament],
   );
 
   // Arranque: una sola vez.

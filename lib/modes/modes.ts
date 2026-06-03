@@ -14,6 +14,7 @@ export interface GameMode {
   lives?: number;
   questionCount: number | 'until-fail';
   allowCashOut?: boolean;
+  generatorIds?: string[];       // restringe el modo a estos generadores (default: pool completo)
   scoring: { base: number; speedBonusMax: number; streakMultiplierStep: number };
 }
 

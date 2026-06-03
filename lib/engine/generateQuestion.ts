@@ -10,6 +10,7 @@ export interface SelectOptions {
   tournamentFilter: TournamentFilter;
   sequenceIndex?: number;            // requerido si filter === 'sequential'
   seenIds: string[];
+  generatorIds?: string[];           // restringe los generadores elegibles (por id)
   rng: Rng;
 }
 
@@ -26,19 +27,22 @@ function candidateTournaments(opts: SelectOptions): Tournament[] {
   return one ? [one] : tournaments;
 }
 
-function generatorsForDifficulty(target: number): Generator[] {
+function generatorsForDifficulty(target: number, allowedIds?: string[]): Generator[] {
+  const pool = allowedIds && allowedIds.length > 0
+    ? GENERATORS.filter((g) => allowedIds.includes(g.id))
+    : GENERATORS;
   // Ventana de ±1; si vacía, se ensancha progresivamente.
   for (let window = 1; window <= 5; window++) {
-    const matches = GENERATORS.filter((g) => Math.abs(g.difficulty - target) <= window);
+    const matches = pool.filter((g) => Math.abs(g.difficulty - target) <= window);
     if (matches.length > 0) return matches;
   }
-  return GENERATORS;
+  return pool.length > 0 ? pool : GENERATORS;
 }
 
 export function generateQuestion(opts: SelectOptions): Question {
   const { rng, seenIds } = opts;
   const tournaments = candidateTournaments(opts);
-  const generators = generatorsForDifficulty(opts.targetDifficulty);
+  const generators = generatorsForDifficulty(opts.targetDifficulty, opts.generatorIds);
   const seen = new Set(seenIds);
 
   let fallback: Question | null = null;

@@ -52,4 +52,17 @@ describe('generateQuestion', () => {
       expect(q6.tournamentYear).toBe(2022);
     }
   });
+
+  it('restricts generators when generatorIds is provided', () => {
+    for (let i = 0; i < 30; i++) {
+      const q = generateQuestion({
+        ...base,
+        targetDifficulty: 3,
+        tournamentFilter: 'all',
+        generatorIds: ['player-country', 'player-country-hard'],
+        rng: createRng(i),
+      });
+      expect(q.id.startsWith('player-country')).toBe(true);
+    }
+  });
 });
