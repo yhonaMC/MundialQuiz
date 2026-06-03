@@ -1,4 +1,3 @@
-import { PLAYERS } from "@/lib/db/players";
 import { conFoto, shuffle } from "@/lib/db/queries";
 import type { Player } from "@/lib/db/types";
 
@@ -38,6 +37,7 @@ export function generarRondaQ(): RondaQ | null {
   const conF = conFoto();
   if (!conF.length) return null;
   const player = conF[Math.floor(Math.random() * conF.length)];
-  const { opciones, correcta } = construirOpciones(player, PLAYERS);
+  // Distractores solo de jugadores con foto: nombres coherentes con lo que se ve en el juego.
+  const { opciones, correcta } = construirOpciones(player, conF);
   return { player, opciones, correcta };
 }

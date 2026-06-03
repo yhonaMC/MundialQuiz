@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { construirOpciones } from "@/lib/quienes/generate";
+import { construirOpciones, generarRondaQ } from "@/lib/quienes/generate";
+import { conFoto } from "@/lib/db/queries";
 import type { Player } from "@/lib/db/types";
 
 const mk = (nombre: string, posicion: Player["posicion"]): Player => ({
@@ -36,6 +37,17 @@ describe("construirOpciones", () => {
     for (let i = 0; i < 20; i++) {
       const { opciones, correcta } = construirOpciones(player, pool);
       expect(opciones[correcta]).toBe(player.nombre);
+    }
+  });
+});
+
+describe("generarRondaQ", () => {
+  it("las opciones solo usan jugadores con foto disponible", () => {
+    const nombresConFoto = new Set(conFoto().map((p) => p.nombre));
+    for (let i = 0; i < 20; i++) {
+      const r = generarRondaQ();
+      expect(r).not.toBeNull();
+      for (const op of r!.opciones) expect(nombresConFoto.has(op)).toBe(true);
     }
   });
 });
