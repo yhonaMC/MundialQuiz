@@ -1,7 +1,8 @@
 import { PLAYERS } from "./players";
 import { TEAMS } from "./teams";
 import { TOURNAMENTS } from "./tournaments";
-import type { Confederacion, Player, Team, Tournament } from "./types";
+import { PHOTOS } from "./photos";
+import type { Confederacion, Foto, Player, Team, Tournament } from "./types";
 
 // Consultas compartidas: la base sobre la que se montan todos los juegos.
 
@@ -25,8 +26,13 @@ export function campeones(): Player[] {
   return PLAYERS.filter((p) => p.campeon);
 }
 
+// Jugadores que tienen foto resuelta (con la atribución adjunta).
 export function conFoto(): Player[] {
-  return PLAYERS.filter((p) => p.foto);
+  return PLAYERS.filter((p) => PHOTOS[p.id]).map((p) => ({ ...p, foto: PHOTOS[p.id] }));
+}
+
+export function getFoto(id: string): Foto | undefined {
+  return PHOTOS[id];
 }
 
 export function getTeam(code: string): Team | undefined {

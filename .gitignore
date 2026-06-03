@@ -43,3 +43,6 @@ next-env.d.ts
 
 # raw datasets (processed into lib/incognita/data; not bundled)
 /data-sources/
+
+# caché de scripts (imágenes)
+/scripts/.cache/
