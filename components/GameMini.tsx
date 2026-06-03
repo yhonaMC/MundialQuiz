@@ -65,6 +65,18 @@ export function GameMini({ game, small }: { game: string; small?: boolean }) {
       </div>
     );
   }
+  if (game === "penales") {
+    // Balón apuntando al arco.
+    return (
+      <div className="flex items-center gap-2">
+        <span className={`rounded-full bg-white ${small ? "h-7 w-7" : "h-10 w-10"}`} />
+        <span className={`grid place-items-center rounded-md border-2 border-white/50 font-black text-white ${small ? "h-7 w-10 text-[8px]" : "h-10 w-14 text-[10px]"}`}>
+          GOL
+        </span>
+      </div>
+    );
+  }
+
   // quien-es
   const s = small ? "h-10 w-10" : "h-12 w-12";
   return (
