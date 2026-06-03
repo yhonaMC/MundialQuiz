@@ -53,7 +53,7 @@ export function PlayerCard({
           <img
             src={player.foto.archivo}
             alt={player.nombre}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-contain"
             loading="lazy"
           />
         ) : (
