@@ -1,12 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowLeft, Plus, LogIn } from "lucide-react";
 import { MemphisBackground } from "@/components/ui/MemphisBackground";
+import { AVATAR_COLORS, iniciales, loadPerfil, savePerfil } from "@/lib/perfil";
 
-// Código de sala de 4 caracteres (sin caracteres ambiguos).
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 function nuevoCodigo(): string {
   let c = "";
@@ -17,11 +17,28 @@ function nuevoCodigo(): string {
 export default function MultijugadorPage() {
   const router = useRouter();
   const [codigo, setCodigo] = useState("");
+  const [nombre, setNombre] = useState("");
+  const [color, setColor] = useState(AVATAR_COLORS[0]);
 
-  const crear = () => router.push(`/sala/${nuevoCodigo()}?host=1`);
+  // Cargar perfil guardado (solo cliente).
+  useEffect(() => {
+    const p = loadPerfil();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- init solo-cliente intencional
+    setNombre(p.nombre);
+    setColor(p.color);
+  }, []);
+
+  const persistir = () => savePerfil({ nombre, color });
+  const crear = () => {
+    persistir();
+    router.push(`/sala/${nuevoCodigo()}?host=1`);
+  };
   const unir = () => {
     const c = codigo.trim().toUpperCase();
-    if (c.length >= 4) router.push(`/sala/${c}`);
+    if (c.length >= 4) {
+      persistir();
+      router.push(`/sala/${c}`);
+    }
   };
 
   return (
@@ -37,6 +54,41 @@ export default function MultijugadorPage() {
       <div className="text-center">
         <h1 className="text-3xl font-black uppercase italic sm:text-4xl">Multijugador</h1>
         <p className="mt-1 text-sm text-[var(--color-gray-light)]/80">Juega con amigos en tiempo real</p>
+      </div>
+
+      {/* Perfil: avatar + apodo */}
+      <div className="flex w-full max-w-md flex-col gap-3 rounded-3xl bg-[var(--color-navy)] p-5 ring-1 ring-white/10">
+        <p className="text-xs font-bold uppercase tracking-widest text-[var(--color-gray-light)]/60">Tu perfil</p>
+        <div className="flex items-center gap-3">
+          <span
+            className="grid h-14 w-14 shrink-0 place-items-center rounded-full text-lg font-black text-[var(--color-navy-deep)] ring-2 ring-white/20"
+            style={{ backgroundColor: color }}
+          >
+            {iniciales(nombre)}
+          </span>
+          <input
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value.slice(0, 12))}
+            placeholder="Tu apodo"
+            className="w-full rounded-2xl border border-white/20 bg-white/10 px-4 py-3 font-bold text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[var(--color-green)]"
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {AVATAR_COLORS.map((c) => (
+            <button
+              key={c}
+              onClick={() => setColor(c)}
+              aria-label={`Color ${c}`}
+              className="h-8 w-8 rounded-full transition-transform"
+              style={{
+                backgroundColor: c,
+                outline: color === c ? "3px solid #fff" : "none",
+                outlineOffset: "2px",
+                transform: color === c ? "scale(1.1)" : "none",
+              }}
+            />
+          ))}
+        </div>
       </div>
 
       <div className="flex w-full max-w-md flex-col gap-4">
