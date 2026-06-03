@@ -19,6 +19,7 @@ export interface Player {
   mundiales: number[]; // años en que participó
   campeon: boolean; // fue campeón del mundo en alguno de sus Mundiales
   nacimiento: number | null; // año
+  altura: number | null; // cm (solo disponible para jugadores de 2026)
   foto?: Foto; // se completa en el paso de imágenes
 }
 

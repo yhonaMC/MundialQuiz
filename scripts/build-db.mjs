@@ -10,11 +10,6 @@ function normalize(s) {
   }
   return out;
 }
-function surnameToken(p) {
-  const base = p.lastNames || p.nameOnShirt || p.officialPlayerName || "";
-  const t = base.split(/[\s'-]+/).filter(Boolean);
-  return t.length ? t[t.length - 1] : "";
-}
 
 const PAIS = {
   Argentina: "Argentina", Brazil: "Brasil", France: "Francia", Germany: "Alemania",
@@ -85,35 +80,78 @@ const teams = [...teamSet.entries()].map(([name, code]) => ({
   confederacion: confederacion(name),
 })).sort((a, b) => a.nombreEs.localeCompare(b.nombreEs));
 
-// ---- players (agrupados por playerId) ----
-const byId = new Map();
+// ---- players ----
+// Históricos: agrupan por playerId. 2026 viene del PDF FIFA con playerId null y nombre
+// "APELLIDO Nombre"; se fusiona con su versión histórica por (apellido + año de
+// nacimiento), o entra como nuevo jugador si no existe.
+const surnameLast = (s) => (s || "").split(/[\s'-]+/).filter(Boolean).at(-1) || "";
+const titleCase = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : "");
+const yearOfDob = (d) => (d ? Number(String(d).slice(0, 4)) : null);
+
+const hist = new Map();
 for (const p of PLAYERS) {
-  const cur = byId.get(p.playerId) || {
-    id: p.playerId, nombre: p.officialPlayerName, entries: [], nacimiento: p.dateOfBirth ? Number(p.dateOfBirth.slice(0, 4)) : null,
+  if (!p.playerId) continue; // 2026 (sin playerId) se procesa aparte
+  const cur = hist.get(p.playerId) || {
+    id: p.playerId,
+    nombre: p.officialPlayerName,
+    apellido: normalize(surnameLast(p.lastNames || p.officialPlayerName)),
+    nacimiento: yearOfDob(p.dateOfBirth),
+    entries: [],
   };
-  cur.entries.push({ year: p.tournamentYear, team: p.teamName, pos: p.position });
-  byId.set(p.playerId, cur);
+  cur.entries.push({ year: p.tournamentYear, team: p.teamName, pos: p.position, h: p.heightCm ?? null });
+  hist.set(p.playerId, cur);
 }
+const byKey = new Map();
+for (const h of hist.values()) if (h.nacimiento) byKey.set(`${h.apellido}|${h.nacimiento}`, h);
+
+const extra = [];
+for (const p of PLAYERS) {
+  if (p.playerId) continue; // solo 2026
+  const toks = (p.officialPlayerName || "").split(/\s+/).filter(Boolean);
+  const apellido = normalize(toks[0] || ""); // en 2026 el APELLIDO va primero
+  const yr = yearOfDob(p.dateOfBirth);
+  const entry = { year: 2026, team: p.teamName, pos: p.position, h: p.heightCm ?? null };
+  const match = yr ? byKey.get(`${apellido}|${yr}`) : null;
+  if (match) {
+    match.entries.push(entry);
+  } else {
+    extra.push({
+      id: p.id,
+      nombre: `${toks.slice(1).join(" ")} ${titleCase(toks[0] || "")}`.trim(),
+      apellido,
+      nacimiento: yr,
+      entries: [entry],
+    });
+  }
+}
+
 const players = [];
-for (const p of byId.values()) {
+for (const p of [...hist.values(), ...extra]) {
   const years = [...new Set(p.entries.map((e) => e.year))].sort((a, b) => a - b);
   const last = p.entries.reduce((a, b) => (b.year >= a.year ? b : a));
   const campeon = p.entries.some((e) => winners[e.year] && winners[e.year] === e.team);
+  const conH = p.entries.filter((e) => e.h != null).sort((a, b) => b.year - a.year);
   players.push({
     id: p.id,
     nombre: p.nombre,
-    apellido: normalize(surnameToken({ officialPlayerName: p.nombre })),
+    apellido: p.apellido,
     paisEs: paisEs(last.team),
     confederacion: confederacion(last.team),
     posicion: POS[last.pos] || "Jugador",
     mundiales: years,
     campeon,
     nacimiento: p.nacimiento,
+    altura: conH.length ? conH[0].h : null,
   });
 }
-// subconjunto jugable por notoriedad: más Mundiales, luego más reciente.
-players.sort((a, b) => b.mundiales.length - a.mundiales.length || b.mundiales.at(-1) - a.mundiales.at(-1));
-const subset = players.slice(0, 1500);
+// subconjunto jugable: leyendas (notoriedad) + TODOS los de 2026 (actuales, con
+// altura y candidatos a foto). Notoriedad = nº de Mundiales + recencia.
+const score = (p) => p.mundiales.length + (p.mundiales.at(-1) - 1930) / 8;
+players.sort((a, b) => score(b) - score(a));
+const top = players.slice(0, 1200);
+const topIds = new Set(top.map((p) => p.id));
+const y2026 = players.filter((p) => p.mundiales.includes(2026) && !topIds.has(p.id));
+const subset = [...top, ...y2026];
 
 const write = (file, name, type, data) =>
   fs.writeFileSync(

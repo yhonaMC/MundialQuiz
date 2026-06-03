@@ -31,7 +31,8 @@ function valuesWithEnough(key: (p: Player) => string): string[] {
 
 interface Relacion {
   tipo: string;
-  build: () => { test: (p: Player) => boolean; label: string } | null;
+  // distract: filtro extra para los distractores (evita falsos grupos visibles).
+  build: () => { test: (p: Player) => boolean; label: string; distract?: (p: Player) => boolean } | null;
 }
 
 const RELACIONES: Relacion[] = [
@@ -70,6 +71,51 @@ const RELACIONES: Relacion[] = [
       return { test: (p) => p.confederacion === conf, label: `Los 3 son de ${conf}` };
     },
   },
+  {
+    tipo: "década de nacimiento",
+    build: () => {
+      const dec = (p: Player) => (p.nacimiento ? Math.floor(p.nacimiento / 10) * 10 : null);
+      const decs = valuesWithEnough((p) => String(dec(p)));
+      const opciones = decs.filter((d) => d !== "null").map(Number);
+      if (!opciones.length) return null;
+      const d = pick(opciones);
+      return {
+        test: (p) => p.nacimiento != null && Math.floor(p.nacimiento / 10) * 10 === d,
+        label: `Los 3 nacieron en la década de ${d}`,
+      };
+    },
+  },
+  {
+    tipo: "veteranos",
+    build: () => ({ test: (p) => p.mundiales.length >= 3, label: "Los 3 jugaron 3 o más Mundiales" }),
+  },
+  {
+    tipo: "compañeros",
+    build: () => {
+      const counts = new Map<string, number>();
+      for (const p of PLAYERS) for (const y of p.mundiales) {
+        const k = `${p.paisEs}|${y}`;
+        counts.set(k, (counts.get(k) ?? 0) + 1);
+      }
+      const keys = [...counts.entries()].filter(([, n]) => n >= MATCH).map(([k]) => k);
+      if (!keys.length) return null;
+      const [pais, yStr] = pick(keys).split("|");
+      const year = Number(yStr);
+      return {
+        test: (p) => p.paisEs === pais && p.mundiales.includes(year),
+        // distractores de otro país: así "mismo país" no parece un grupo válido extra.
+        distract: (p) => p.paisEs !== pais,
+        label: `Los 3 jugaron el Mundial ${year} con ${pais}`,
+      };
+    },
+  },
+  {
+    tipo: "altura",
+    build: () => ({
+      test: (p) => p.altura != null && p.altura >= 190,
+      label: "Los 3 miden 1,90 m o más",
+    }),
+  },
 ];
 
 const withFoto = (p: Player): Player => {
@@ -85,7 +131,9 @@ export function generarRonda(): Ronda {
     const built = rel.build();
     if (!built) continue;
     const matchPool = PLAYERS.filter(built.test);
-    const distractPool = PLAYERS.filter((p) => !built.test(p));
+    const distractPool = PLAYERS.filter(
+      (p) => !built.test(p) && (built.distract ? built.distract(p) : true),
+    );
     if (matchPool.length < MATCH || distractPool.length < TOTAL - MATCH) continue;
 
     const matched = sample(matchPool, MATCH);

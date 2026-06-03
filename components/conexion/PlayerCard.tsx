@@ -68,7 +68,7 @@ export function PlayerCard({
 
       <p className="mt-1.5 w-full truncate text-center text-xs font-extrabold">{player.nombre}</p>
       <p className="w-full truncate text-center text-[10px] text-[var(--color-gray-light)]/70">
-        {player.paisEs}
+        {player.paisEs} · {player.posicion}
       </p>
     </motion.button>
   );
