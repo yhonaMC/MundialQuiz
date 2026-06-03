@@ -2,8 +2,9 @@
 // Reanudable (caché en disco), con throttle y backoff. Pensado para correr en LOCAL.
 //
 // Uso:
-//   WIKI_CONTACT="tu-email@ejemplo.com" node scripts/build-images.mjs
+//   node scripts/build-images.mjs            (correo ya incluido en el User-Agent)
 //   opciones: --limit N (probar con pocos)   --delay 800 (ms entre jugadores)
+//   override opcional del contacto: WIKI_CONTACT="otro@correo.com" node scripts/build-images.mjs
 //
 // Salidas:
 //   public/players/<id>.<ext>   imágenes descargadas
@@ -20,7 +21,7 @@ const opt = (name, def) => {
 };
 const LIMIT = Number(opt("limit", "0")) || Infinity;
 const DELAY = Number(opt("delay", "800"));
-const CONTACT = process.env.WIKI_CONTACT || "set WIKI_CONTACT env var";
+const CONTACT = process.env.WIKI_CONTACT || "rlozada808@gmail.com";
 const UA = `MundialTrivia/1.0 (${CONTACT}) image-fetch`;
 
 const FOOTBALLER = "Q937857"; // association football player
@@ -53,7 +54,9 @@ async function getJSON(url, tries = 5) {
 
 function loadPlayers() {
   const src = fs.readFileSync("lib/db/players.ts", "utf8");
-  return JSON.parse(src.slice(src.indexOf("["), src.lastIndexOf("]") + 1));
+  // Ojo: el "[" del array va DESPUÉS del "=" (la anotación "Player[]" también tiene "[").
+  const start = src.indexOf("[", src.indexOf("="));
+  return JSON.parse(src.slice(start, src.lastIndexOf("]") + 1));
 }
 
 function loadCache() {
