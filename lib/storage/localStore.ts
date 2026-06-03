@@ -10,6 +10,8 @@ export interface SaveData {
   bestStreak: number;
   seenIds: string[];
   stats: Stats;
+  // Récord de Penales por nivel ('facil' | 'normal' | 'dificil').
+  penales: Record<string, { ganados: number; perdidos: number }>;
 }
 
 export interface StorageLike {
@@ -26,6 +28,7 @@ export function defaultSaveData(): SaveData {
     bestStreak: 0,
     seenIds: [],
     stats: { gamesPlayed: 0, totalCorrect: 0, totalAnswered: 0 },
+    penales: {},
   };
 }
 
@@ -49,7 +52,12 @@ export function loadData(storage?: StorageLike): SaveData {
     const raw = s.getItem(STORAGE_KEY);
     if (!raw) return defaultSaveData();
     const parsed = JSON.parse(raw) as Partial<SaveData>;
-    return { ...defaultSaveData(), ...parsed, stats: { ...defaultSaveData().stats, ...parsed.stats } };
+    return {
+      ...defaultSaveData(),
+      ...parsed,
+      stats: { ...defaultSaveData().stats, ...parsed.stats },
+      penales: parsed.penales ?? {},
+    };
   } catch {
     return defaultSaveData();
   }
@@ -101,17 +109,17 @@ export function addSeenIds(ids: string[], max = 200, storage?: StorageLike): Sav
   return next;
 }
 
-// Registra un resultado de tanda de penales. Solo para actualizar highScores["penales"].
-// El modo "penales" es sólo binario (ganó/perdió); highScores["penales"] acumula victorias.
 export function recordPenales(nivel: string, won: boolean, storage?: StorageLike): SaveData {
-  if (!won) return loadData(storage);
   const data = loadData(storage);
-  const modeId = `penales-${nivel}`;
+  const current = data.penales[nivel] ?? { ganados: 0, perdidos: 0 };
   const next: SaveData = {
     ...data,
-    highScores: {
-      ...data.highScores,
-      [modeId]: (data.highScores[modeId] ?? 0) + 1,
+    penales: {
+      ...data.penales,
+      [nivel]: {
+        ganados: current.ganados + (won ? 1 : 0),
+        perdidos: current.perdidos + (won ? 0 : 1),
+      },
     },
   };
   saveData(next, storage);

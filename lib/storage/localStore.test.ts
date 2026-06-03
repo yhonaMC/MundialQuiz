@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  loadData, saveData, recordGame, addSeenIds, defaultSaveData, type StorageLike,
+  loadData, saveData, recordGame, addSeenIds, defaultSaveData, recordPenales, type StorageLike,
 } from '@/lib/storage/localStore';
 
 function fakeStorage(): StorageLike {
@@ -52,5 +52,25 @@ describe('localStore', () => {
     // conserva los más recientes
     expect(data.seenIds).toContain('id249');
     expect(data.seenIds).not.toContain('id0');
+  });
+
+  it('recordPenales accumulates wins and losses per level', () => {
+    const s = fakeStorage();
+    recordPenales('normal', true, s);
+    recordPenales('normal', true, s);
+    recordPenales('normal', false, s);
+    recordPenales('dificil', false, s);
+    const data = loadData(s);
+    expect(data.penales.normal).toEqual({ ganados: 2, perdidos: 1 });
+    expect(data.penales.dificil).toEqual({ ganados: 0, perdidos: 1 });
+    expect(data.penales.facil).toBeUndefined();
+  });
+
+  it('old saved data without penales loads with an empty record', () => {
+    const s = fakeStorage();
+    s.setItem('mundialquiz:v1', JSON.stringify({ totalPoints: 10 }));
+    const data = loadData(s);
+    expect(data.penales).toEqual({});
+    expect(data.totalPoints).toBe(10);
   });
 });
