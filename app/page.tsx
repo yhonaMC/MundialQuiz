@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import { motion } from "framer-motion";
 import { User } from "lucide-react";
 import { MemphisBackground } from "@/components/ui/MemphisBackground";
@@ -132,7 +131,7 @@ export default function Home() {
         className="mt-10 grid w-full max-w-2xl gap-5 sm:grid-cols-2"
       >
         <GameCard
-          href="/quiz"
+          href="/jugar/quiz"
           badge="Trivia"
           accent="var(--color-green)"
           title="Quiz"
@@ -140,21 +139,21 @@ export default function Home() {
           visual={<QuizStack />}
         />
         <GameCard
-          href="/incognita"
+          href="/jugar/incognita"
           accent="var(--color-amber)"
           title={<>La Incógnita<br />Mundialera</>}
           subtitle="Adivina el jugador o la selección oculta en 6 intentos. ¡Una distinta cada vez!"
           visual={<MiniTiles />}
         />
         <GameCard
-          href="/conexion"
+          href="/jugar/conexion"
           accent="var(--color-red)"
           title={<>La Conexión<br />Mundialera</>}
           subtitle="6 jugadores, 3 comparten algo. Descubre la conexión y selecciónalos."
           visual={<ConexionMini />}
         />
         <GameCard
-          href="/quien-es"
+          href="/jugar/quien-es"
           accent="var(--color-green)"
           title="¿Quién es?"
           subtitle="Adivina el jugador por su foto entre varias opciones. Suma puntos y rachas."
@@ -164,13 +163,6 @@ export default function Home() {
 
       {/* Anuncio al pie (no intrusivo; solo aparece si hay slot configurado) */}
       <AdBanner className="mt-10 w-full max-w-2xl" />
-
-      <Link
-        href="/privacidad"
-        className="mt-8 text-xs font-bold text-[var(--color-gray-light)]/50 hover:text-white"
-      >
-        Política de Privacidad
-      </Link>
     </main>
   );
 }
