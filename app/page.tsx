@@ -93,8 +93,8 @@ function ConexionMini() {
 function QuienEsMini() {
   return (
     <div className="relative">
-      <Avatar src={FOTOS[0]?.foto?.archivo} className="h-16 w-16 rounded-full" />
-      <span className="absolute -bottom-1 -right-1 grid h-7 w-7 place-items-center rounded-full bg-[var(--color-green)] text-lg font-black text-[var(--color-navy-deep)] ring-2 ring-[var(--color-navy)]">
+      <Avatar src={FOTOS[0]?.foto?.archivo} className="h-12 w-12 rounded-full" />
+      <span className="absolute -bottom-1 -right-1 grid h-6 w-6 place-items-center rounded-full bg-[var(--color-green)] text-sm font-black text-[var(--color-navy-deep)] ring-2 ring-[var(--color-navy)]">
         ?
       </span>
     </div>
