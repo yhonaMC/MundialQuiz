@@ -17,7 +17,7 @@ const FOTOS = conFoto();
 function Avatar({ src, className, ring }: { src?: string; className: string; ring?: boolean }) {
   return (
     <span
-      className={`overflow-hidden bg-white/10 ${className} ${
+      className={`block overflow-hidden bg-white/10 ${className} ${
         ring ? "ring-2 ring-[var(--color-green)]" : "ring-1 ring-white/15"
       }`}
     >
