@@ -1,7 +1,7 @@
 "use client";
 import { useEffect } from "react";
 
-const CLIENT = "ca-pub-1571636367391591";
+const CLIENT = "ca-pub-4390753504297076";
 // Slot de la unidad de anuncio (créala en AdSense → Display). Se configura por env
 // (NEXT_PUBLIC_ADSENSE_SLOT). Si no está, el banner no se muestra → cero molestias.
 const SLOT = process.env.NEXT_PUBLIC_ADSENSE_SLOT ?? "";

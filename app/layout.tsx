@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import Script from "next/script";
+import { Footer } from "@/components/Footer";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -9,7 +10,7 @@ const poppins = Poppins({
   weight: ["400", "600", "700", "800", "900"],
 });
 
-const ADSENSE_CLIENT = "ca-pub-1571636367391591";
+const ADSENSE_CLIENT = "ca-pub-4390753504297076";
 const GTM_ID = "GTM-MQLW2PG3";
 
 export const metadata: Metadata = {
@@ -57,6 +58,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         </noscript>
 
         {children}
+        <Footer />
       </body>
     </html>
   );
