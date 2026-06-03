@@ -1,14 +1,14 @@
 @import "tailwindcss";
 
 @theme {
-  --color-indigo-base: #1b2a8f;
-  --color-indigo-deep: #141a5e;
-  --color-magenta: #ec1e9c;
-  --color-red-flag: #e8332a;
-  --color-gold: #ffce1f;
-  --color-green-pitch: #14b866;
-  --color-cyan-pop: #25c4d6;
-  --color-purple-pop: #6f2dbd;
+  /* Paleta Mundial 2026 — Stadium Night */
+  --color-navy: #2a398d; /* superficie de marca: tarjetas, cabecera */
+  --color-navy-deep: #18225c; /* base del fondo (gradiente, más oscuro) */
+  --color-green: #3cac3b; /* primario / "go" / acierto / puntaje */
+  --color-red: #e61d25; /* urgente / error / acento / retirarse */
+  --color-gray-light: #d1d4d1; /* texto atenuado, etiquetas secundarias */
+  --color-gray-dark: #474a4a; /* bordes glass, superficies inertes */
+  --color-amber: #e3a008; /* SOLO juego La Incógnita: "letra presente, mal lugar" */
   --font-sans: var(--font-poppins), system-ui, sans-serif;
 }
 
@@ -17,9 +17,25 @@
 }
 
 body {
-  background-color: var(--color-indigo-deep);
+  background-color: var(--color-navy-deep);
+  background-image: radial-gradient(
+      120% 80% at 50% -10%,
+      color-mix(in srgb, var(--color-navy) 70%, transparent),
+      transparent 60%
+    ),
+    linear-gradient(180deg, var(--color-navy-deep), #0f1640 100%);
+  background-attachment: fixed;
   color: #ffffff;
   font-family: var(--font-sans);
+}
+
+/* Cursor de mano en todo lo interactivo (Tailwind v4 pone los botones en cursor por defecto). */
+button:not(:disabled),
+[role="button"],
+a[href],
+label[for],
+summary {
+  cursor: pointer;
 }
 
 /* Respeto de accesibilidad: animaciones suaves si el usuario lo pide */

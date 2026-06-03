@@ -1,0 +1,19 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3CAC3B"/>
+      <stop offset="1" stop-color="#2C8A2B"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="url(#bg)"/>
+  <!-- Balón -->
+  <circle cx="32" cy="32" r="17" fill="#FFFFFF"/>
+  <g stroke="#2A398D" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round">
+    <polygon points="32,25.5 38.2,31 35.8,38.3 28.2,38.3 25.8,31" fill="#2A398D"/>
+    <line x1="32" y1="25.5" x2="32" y2="16.5"/>
+    <line x1="38.2" y1="31" x2="46.7" y2="27.2"/>
+    <line x1="35.8" y1="38.3" x2="41.1" y2="44.5"/>
+    <line x1="28.2" y1="38.3" x2="22.9" y2="44.5"/>
+    <line x1="25.8" y1="31" x2="17.3" y2="27.2"/>
+  </g>
+</svg>

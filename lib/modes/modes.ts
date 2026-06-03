@@ -5,7 +5,7 @@ export type DifficultyCurve = 'fixed' | 'ascending' | 'adaptive';
 export interface GameMode {
   id: string;
   name: string;
-  icon: string;                  // emoji
+  icon: string;                  // clave semántica de icono (ver components/ui/ModeIcon)
   description: string;
   tournamentFilter: TournamentFilter;
   difficultyCurve: DifficultyCurve;
@@ -23,7 +23,7 @@ export const MODES: GameMode[] = [
   {
     id: 'por-mundial',
     name: 'Por Mundial',
-    icon: '🏆',
+    icon: 'trophy',
     description: 'Elige una edición y responde solo preguntas de ese Mundial.',
     tournamentFilter: 'all',     // se sobrescribe en runtime con el año elegido
     difficultyCurve: 'adaptive',
@@ -33,7 +33,7 @@ export const MODES: GameMode[] = [
   {
     id: 'contrarreloj',
     name: 'Contrarreloj',
-    icon: '⏱️',
+    icon: 'timer',
     description: '60 segundos para sumar todos los puntos que puedas. La velocidad da bonus.',
     tournamentFilter: 'all',
     difficultyCurve: 'adaptive',
@@ -44,7 +44,7 @@ export const MODES: GameMode[] = [
   {
     id: 'supervivencia',
     name: 'Supervivencia',
-    icon: '❤️',
+    icon: 'heart',
     description: '3 vidas. La dificultad sube con cada acierto. ¿Cuánto aguantas?',
     tournamentFilter: 'all',
     difficultyCurve: 'ascending',
@@ -55,7 +55,7 @@ export const MODES: GameMode[] = [
   {
     id: 'escalera',
     name: 'Escalera',
-    icon: '🪜',
+    icon: 'ladder',
     description: 'La dificultad sube y el multiplicador crece. Retírate con tus puntos… o arriésgalos.',
     tournamentFilter: 'all',
     difficultyCurve: 'ascending',
@@ -66,7 +66,7 @@ export const MODES: GameMode[] = [
   {
     id: 'maraton',
     name: 'Maratón Mundialista',
-    icon: '🌍',
+    icon: 'globe',
     description: 'Recorre 1998 → 2022 en una sola partida épica.',
     tournamentFilter: 'sequential',
     difficultyCurve: 'adaptive',
@@ -76,7 +76,7 @@ export const MODES: GameMode[] = [
   {
     id: 'experto',
     name: 'Modo Experto',
-    icon: '🧠',
+    icon: 'brain',
     description: 'Solo preguntas difíciles y multiplicadores altos. Para los que se las saben todas.',
     tournamentFilter: 'all',
     difficultyCurve: 'fixed',

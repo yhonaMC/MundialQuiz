@@ -1,13 +1,14 @@
 "use client";
 import { motion } from "framer-motion";
 import type { ReactNode } from "react";
+import { sfx } from "@/lib/sound";
 
-type Variant = "primary" | "ghost" | "gold";
+type Variant = "primary" | "accent" | "ghost";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-[var(--color-magenta)] text-white",
-  gold: "bg-[var(--color-gold)] text-[var(--color-indigo-deep)]",
-  ghost: "bg-white/10 text-white border border-white/20",
+  primary: "bg-[var(--color-green)] text-[var(--color-navy-deep)] shadow-[0_8px_0_0_#2c8a2b]",
+  accent: "bg-[var(--color-red)] text-white shadow-[0_8px_0_0_#a8141a]",
+  ghost: "bg-white/10 text-white border border-white/20 shadow-lg",
 };
 
 export function Button({
@@ -28,11 +29,19 @@ export function Button({
   return (
     <motion.button
       type={type}
-      whileTap={{ scale: 0.96 }}
-      whileHover={{ scale: disabled ? 1 : 1.03 }}
-      onClick={onClick}
+      whileHover={disabled ? undefined : { scale: 1.04, y: -2 }}
+      whileTap={disabled ? undefined : { scale: 0.94, y: 2 }}
+      transition={{ type: "spring", stiffness: 500, damping: 18 }}
+      onClick={
+        onClick
+          ? () => {
+              sfx.tap();
+              onClick();
+            }
+          : undefined
+      }
       disabled={disabled}
-      className={`rounded-2xl px-6 py-3 font-extrabold shadow-lg disabled:opacity-50 ${variants[variant]} ${className}`}
+      className={`rounded-2xl px-6 py-3 font-extrabold disabled:opacity-50 disabled:shadow-none ${variants[variant]} ${className}`}
     >
       {children}
     </motion.button>

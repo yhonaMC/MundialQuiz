@@ -1,7 +1,7 @@
 "use client";
 import { motion } from "framer-motion";
 
-const COLORS = ["#ec1e9c", "#ffce1f", "#14b866", "#25c4d6", "#6f2dbd", "#e8332a"];
+const COLORS = ["#3cac3b", "#e61d25", "#2a398d", "#d1d4d1", "#ffffff"];
 
 // Confeti simple basado en el índice de la pieza (determinista, sin Math.random en render).
 export function Confetti({ pieces = 24 }: { pieces?: number }) {

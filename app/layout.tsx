@@ -9,8 +9,9 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "MundialQuiz — Trivia de los Mundiales",
-  description: "Pon a prueba cuánto sabes de los Mundiales 1998–2022 con quizzes dinámicos.",
+  title: "MundialTrivia — Juegos de los Mundiales",
+  description:
+    "Juegos de los Mundiales 1930–2026: quiz de trivia y La Incógnita Mundialera, el juego diario de adivinar el jugador o la selección oculta.",
 };
 
 export default function RootLayout({
