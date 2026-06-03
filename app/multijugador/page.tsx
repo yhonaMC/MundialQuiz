@@ -1,11 +1,10 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowLeft, Plus, LogIn } from "lucide-react";
 import { MemphisBackground } from "@/components/ui/MemphisBackground";
-import { getGame } from "@/lib/games";
 
 // Código de sala de 4 caracteres (sin caracteres ambiguos).
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -16,25 +15,13 @@ function nuevoCodigo(): string {
 }
 
 export default function MultijugadorPage() {
-  const params = useParams<{ game: string }>();
   const router = useRouter();
-  const game = getGame(params.game);
   const [codigo, setCodigo] = useState("");
 
-  if (!game) {
-    return (
-      <main className="relative flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
-        <MemphisBackground />
-        <p className="text-xl font-black">Juego no encontrado.</p>
-        <Link href="/" className="underline">Volver al inicio</Link>
-      </main>
-    );
-  }
-
-  const crear = () => router.push(`/sala/${nuevoCodigo()}?game=${params.game}&host=1`);
+  const crear = () => router.push(`/sala/${nuevoCodigo()}?host=1`);
   const unir = () => {
     const c = codigo.trim().toUpperCase();
-    if (c.length >= 4) router.push(`/sala/${c}?game=${params.game}`);
+    if (c.length >= 4) router.push(`/sala/${c}`);
   };
 
   return (
@@ -42,18 +29,17 @@ export default function MultijugadorPage() {
       <MemphisBackground />
 
       <div className="flex w-full max-w-md items-center">
-        <Link href={`/jugar/${params.game}`} className="flex items-center gap-1 text-sm font-bold text-[var(--color-gray-light)]/80 hover:text-white">
-          <ArrowLeft className="h-4 w-4" /> Atrás
+        <Link href="/" className="flex items-center gap-1 text-sm font-bold text-[var(--color-gray-light)]/80 hover:text-white">
+          <ArrowLeft className="h-4 w-4" /> Inicio
         </Link>
       </div>
 
       <div className="text-center">
-        <p className="text-xs font-bold uppercase tracking-widest text-[var(--color-gray-light)]/60">{game.nombre}</p>
-        <h1 className="mt-1 text-3xl font-black uppercase italic sm:text-4xl">Multijugador</h1>
+        <h1 className="text-3xl font-black uppercase italic sm:text-4xl">Multijugador</h1>
+        <p className="mt-1 text-sm text-[var(--color-gray-light)]/80">Juega con amigos en tiempo real</p>
       </div>
 
       <div className="flex w-full max-w-md flex-col gap-4">
-        {/* Crear sala */}
         <motion.button
           onClick={crear}
           whileHover={{ y: -3, scale: 1.02 }}
@@ -67,7 +53,6 @@ export default function MultijugadorPage() {
           <span className="h-px flex-1 bg-white/15" /> o únete <span className="h-px flex-1 bg-white/15" />
         </div>
 
-        {/* Unirse con código */}
         <div className="flex flex-col gap-3 rounded-3xl bg-[var(--color-navy)] p-5 ring-1 ring-white/10">
           <input
             value={codigo}
