@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { User } from "lucide-react";
 import { MemphisBackground } from "@/components/ui/MemphisBackground";
@@ -163,6 +164,13 @@ export default function Home() {
 
       {/* Anuncio al pie (no intrusivo; solo aparece si hay slot configurado) */}
       <AdBanner className="mt-10 w-full max-w-2xl" />
+
+      <Link
+        href="/privacidad"
+        className="mt-8 text-xs font-bold text-[var(--color-gray-light)]/50 hover:text-white"
+      >
+        Política de Privacidad
+      </Link>
     </main>
   );
 }
