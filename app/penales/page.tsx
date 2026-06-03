@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { ArrowLeft } from "lucide-react";
 import { MemphisBackground } from "@/components/ui/MemphisBackground";
 import { Button } from "@/components/ui/Button";
 import { Confetti } from "@/components/ui/Confetti";
@@ -61,7 +62,8 @@ function LevelSelect({ mounted, onPick }: { mounted: boolean; onPick: (n: Nivel)
       <h1 className="text-center text-3xl font-black uppercase italic">⚽ Penales Quiz</h1>
       <p className="max-w-md text-center text-sm text-[var(--color-gray-light)]/80">
         Cada pregunta es un penal: acierta y es gol, falla y lo ataja el portero. Gana la tanda al
-        mejor de 5 contra la IA. Empate = muerte súbita.
+        mejor de 5. Empate = muerte súbita. Elige un nivel para retar a la IA, o juega contra tus
+        amigos en multijugador.
       </p>
       <div className="grid w-full max-w-md gap-3">
         {NIVELES.map((n) => {
@@ -87,6 +89,13 @@ function LevelSelect({ mounted, onPick }: { mounted: boolean; onPick: (n: Nivel)
           );
         })}
       </div>
+      <Link
+        href="/multijugador"
+        className="flex w-full max-w-md items-center justify-between rounded-2xl bg-[var(--color-green)] px-5 py-4 font-black text-[var(--color-navy-deep)] shadow-lg"
+      >
+        <span>👥 Jugar de 2 o más</span>
+        <span className="text-xs font-bold uppercase">Multijugador →</span>
+      </Link>
       <Link href="/" className="text-sm text-white/60 underline">
         Volver al inicio
       </Link>
@@ -155,6 +164,11 @@ function PenalesGame({
   return (
     <main className="relative flex flex-1 flex-col items-center gap-5 px-4 py-8">
       <MemphisBackground />
+      <div className="flex w-full max-w-xl items-center justify-between">
+        <Link href="/" className="flex items-center gap-1 text-xs font-bold text-[var(--color-gray-light)]/70 hover:text-white">
+          <ArrowLeft className="h-4 w-4" /> Inicio
+        </Link>
+      </div>
       <Marcador
         playerShots={state.playerShots}
         aiShots={state.aiShots}
