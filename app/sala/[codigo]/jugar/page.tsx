@@ -11,15 +11,15 @@ import { Board, MAX_ATTEMPTS } from "@/components/incognita/Board";
 import { Keyboard } from "@/components/incognita/Keyboard";
 import { GAMES } from "@/lib/games";
 import { AVATAR_COLORS, iniciales, loadPerfil } from "@/lib/perfil";
-import { useRoom } from "@/lib/multiplayer/useRoom";
-import { buildRound, scoreFor, TOTAL_ROUNDS, type Round } from "@/lib/multiplayer/rounds";
+import { useRoom, type Jugador } from "@/lib/multiplayer/useRoom";
+import { buildRound, penalesContinua, scoreFor, TOTAL_ROUNDS, type Round } from "@/lib/multiplayer/rounds";
 import { normalize } from "@/lib/incognita/normalize";
 import { isValidGuess } from "@/lib/incognita/dictionary";
 import { keyboardState } from "@/lib/incognita/keyboardState";
 import type { Player } from "@/lib/db/types";
 
 const REVEAL_MS = 4500;
-const msFor = (r: Round) => (r.kind === "incognita" ? 60000 : r.kind === "conexion" ? 25000 : 15000);
+const msFor = (r: Round) => (r.kind === "incognita" ? 60000 : r.kind === "conexion" ? 25000 : r.kind === "penales" ? 20000 : 15000);
 
 type Phase = "play" | "reveal" | "end";
 
@@ -45,6 +45,7 @@ export default function MatchPage() {
   const [scores, setScores] = useState<Record<string, number>>({});
   const [answered, setAnswered] = useState<string[]>([]);
   const [myDone, setMyDone] = useState(false);
+  const [shots, setShots] = useState<Record<string, boolean[]>>({});
 
   // Refs para acceder a estado actual dentro de callbacks/handlers.
   const roundIdxRef = useRef(-1);
@@ -57,6 +58,7 @@ export default function MatchPage() {
   const roundTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startedRef = useRef(false);
+  const shotsRef = useRef<Record<string, boolean[]>>({});
 
   useEffect(() => {
     playersRef.current = players;
@@ -77,11 +79,18 @@ export default function MatchPage() {
       if (roundTimer.current) clearTimeout(roundTimer.current);
       send("reveal", { idx, scores: { ...hostScoresRef.current } });
       revealTimer.current = setTimeout(() => {
-        if (idx + 1 < TOTAL_ROUNDS) startRound(idx + 1);
+        const continua =
+          game === "penales"
+            ? penalesContinua(
+                playersRef.current.map((pl) => hostScoresRef.current[String(pl.id)] ?? 0),
+                idx + 1,
+              )
+            : idx + 1 < TOTAL_ROUNDS;
+        if (continua) startRound(idx + 1);
         else send("end", { scores: { ...hostScoresRef.current } });
       }, REVEAL_MS);
     },
-    [send, startRound],
+    [game, send, startRound],
   );
 
   // Manejo de eventos de la sala.
@@ -106,6 +115,11 @@ export default function MatchPage() {
         if (Number(p.idx) !== roundIdxRef.current) return;
         answeredRef.current.add(String(p.id));
         setAnswered([...answeredRef.current]);
+        const shooterId = String(p.id);
+        const arr = [...(shotsRef.current[shooterId] ?? [])];
+        arr[Number(p.idx)] = Boolean(p.correct);
+        shotsRef.current = { ...shotsRef.current, [shooterId]: arr };
+        setShots(shotsRef.current);
         if (isHost) {
           hostScoresRef.current[String(p.id)] = (hostScoresRef.current[String(p.id)] || 0) + Number(p.pts);
           if (answeredRef.current.size >= playersRef.current.length) hostReveal(roundIdxRef.current);
@@ -114,6 +128,16 @@ export default function MatchPage() {
         if (Number(p.idx) !== roundIdxRef.current) return;
         setPhase("reveal");
         setScores((p.scores as Record<string, number>) || {});
+        const rIdx = Number(p.idx);
+        for (const pl of playersRef.current) {
+          const id = String(pl.id);
+          const arr = [...(shotsRef.current[id] ?? [])];
+          if (arr[rIdx] === undefined) {
+            arr[rIdx] = false;
+            shotsRef.current = { ...shotsRef.current, [id]: arr };
+          }
+        }
+        setShots(shotsRef.current);
       } else if (type === "end") {
         setPhase("end");
         setScores((p.scores as Record<string, number>) || {});
@@ -140,11 +164,11 @@ export default function MatchPage() {
   const responder = useCallback(
     (correct: boolean) => {
       if (myDone) return;
-      const pts = scoreFor(correct, Date.now() - startTsRef.current, msRef.current);
+      const pts = game === "penales" ? (correct ? 1 : 0) : scoreFor(correct, Date.now() - startTsRef.current, msRef.current);
       setMyDone(true);
       send("ans", { idx: roundIdxRef.current, id: myId, correct, pts });
     },
-    [myDone, myId, send],
+    [game, myDone, myId, send],
   );
 
   const ranking = [...players]
@@ -172,7 +196,10 @@ export default function MatchPage() {
               </span>
               <span className="font-extrabold">{p.nombre}</span>
               {i === 0 && <Crown className="h-4 w-4 text-[var(--color-amber)]" />}
-              <span className="ml-auto font-black tabular-nums text-[var(--color-green)]">{p.pts}</span>
+              <span className="ml-auto font-black tabular-nums text-[var(--color-green)]">
+                {p.pts}
+                {game === "penales" ? " ⚽" : ""}
+              </span>
             </div>
           ))}
         </div>
@@ -193,7 +220,9 @@ export default function MatchPage() {
           Salir
         </Link>
         <span className="text-xs font-bold uppercase tracking-widest text-[var(--color-gray-light)]/60">
-          {GAMES[game]?.nombre} · Ronda {Math.max(0, roundIdx) + 1}/{TOTAL_ROUNDS}
+          {game === "penales"
+            ? `${GAMES[game]?.nombre} · Penal ${Math.max(0, roundIdx) + 1}${roundIdx >= TOTAL_ROUNDS ? " · ⚡ Muerte súbita" : ""}`
+            : `${GAMES[game]?.nombre} · Ronda ${Math.max(0, roundIdx) + 1}/${TOTAL_ROUNDS}`}
         </span>
       </div>
       <div className="flex w-full max-w-xl flex-wrap justify-center gap-2">
@@ -210,7 +239,7 @@ export default function MatchPage() {
       {!round ? (
         <p className="mt-10 font-black">Conectando…</p>
       ) : (
-        <RoundView round={round} phase={phase} myDone={myDone} onResult={responder} />
+        <RoundView round={round} phase={phase} myDone={myDone} onResult={responder} players={players} shots={shots} roundIdx={roundIdx} myId={myId} />
       )}
 
       {phase === "reveal" && (
@@ -221,10 +250,77 @@ export default function MatchPage() {
 }
 
 // ---- Render de cada tipo de ronda ----
-function RoundView({ round, phase, myDone, onResult }: { round: Round; phase: Phase; myDone: boolean; onResult: (c: boolean) => void }) {
+function RoundView({ round, phase, myDone, onResult, players, shots, roundIdx, myId }: { round: Round; phase: Phase; myDone: boolean; onResult: (c: boolean) => void; players: Jugador[]; shots: Record<string, boolean[]>; roundIdx: number; myId: string }) {
+  if (round.kind === "penales") return <PenalesView round={round} phase={phase} myDone={myDone} onResult={onResult} players={players} shots={shots} roundIdx={roundIdx} myId={myId} />;
   if (round.kind === "options") return <OptionsView round={round} phase={phase} myDone={myDone} onResult={onResult} />;
   if (round.kind === "conexion") return <ConexionView round={round} phase={phase} myDone={myDone} onResult={onResult} />;
   return <IncognitaView round={round} phase={phase} myDone={myDone} onResult={onResult} />;
+}
+
+function PenalesView({ round, phase, myDone, onResult, players, shots, roundIdx, myId }: { round: Extract<Round, { kind: "penales" }>; phase: Phase; myDone: boolean; onResult: (c: boolean) => void; players: Jugador[]; shots: Record<string, boolean[]>; roundIdx: number; myId: string }) {
+  const [pick, setPick] = useState<number | null>(null);
+  const reveal = phase === "reveal";
+  const totalDots = Math.max(TOTAL_ROUNDS, roundIdx + 1);
+  const click = (i: number) => {
+    if (myDone || reveal) return;
+    setPick(i);
+    onResult(i === round.answer);
+  };
+  const myGoal = pick !== null && pick === round.answer;
+  return (
+    <div className="flex w-full max-w-md flex-col items-center gap-4">
+      {/* Marcador de la tanda */}
+      <div className="flex w-full flex-col gap-2 rounded-2xl bg-[var(--color-navy)] p-3 ring-1 ring-white/10">
+        {roundIdx >= TOTAL_ROUNDS && (
+          <p className="text-center text-[10px] font-black uppercase tracking-widest text-[var(--color-red)]">⚡ Muerte súbita</p>
+        )}
+        {players.map((pl) => (
+          <div key={pl.id} className="flex items-center gap-2">
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[9px] font-black text-[var(--color-navy-deep)]" style={{ backgroundColor: pl.color }}>
+              {iniciales(pl.nombre)}
+            </span>
+            <div className="flex flex-wrap gap-1">
+              {Array.from({ length: totalDots }).map((_, i) => {
+                const shot = shots[pl.id]?.[i];
+                return (
+                  <span
+                    key={i}
+                    className="grid h-5 w-5 place-items-center rounded-full text-[10px] font-black text-white"
+                    style={{ backgroundColor: shot === undefined ? "rgba(255,255,255,0.12)" : shot ? "var(--color-green)" : "var(--color-red)" }}
+                  >
+                    {shot === undefined ? "" : shot ? "⚽" : "✕"}
+                  </span>
+                );
+              })}
+            </div>
+            {pl.id === myId && <span className="ml-auto text-[9px] font-bold uppercase text-[var(--color-gray-light)]/60">Tú</span>}
+          </div>
+        ))}
+      </div>
+
+      {round.sub && <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black uppercase">{round.sub}</span>}
+      <h2 className="text-center text-xl font-black leading-tight">{round.prompt}</h2>
+      <div className="grid w-full gap-2.5">
+        {round.options.map((op, i) => {
+          let bg = "rgba(255,255,255,0.1)";
+          let fg = "#fff";
+          if (reveal && i === round.answer) { bg = "var(--color-green)"; fg = "var(--color-navy-deep)"; }
+          else if (reveal && i === pick) { bg = "var(--color-red)"; }
+          return (
+            <motion.button key={i} onClick={() => click(i)} disabled={myDone || reveal} whileTap={!myDone && !reveal ? { scale: 0.97 } : undefined} style={{ backgroundColor: bg, color: fg }} className="rounded-2xl px-5 py-3 text-left font-extrabold ring-1 ring-white/10 disabled:opacity-90">
+              {op}
+            </motion.button>
+          );
+        })}
+      </div>
+      {reveal && pick !== null && (
+        <p className="text-2xl font-black uppercase italic" style={{ color: myGoal ? "var(--color-green)" : "var(--color-red)" }}>
+          {myGoal ? "⚽ ¡GOOOL!" : "🧤 ¡Atajado!"}
+        </p>
+      )}
+      {myDone && phase === "play" && <p className="text-sm font-bold text-[var(--color-gray-light)]/70">¡Penal tirado! esperando…</p>}
+    </div>
+  );
 }
 
 function OptionsView({ round, phase, myDone, onResult }: { round: Extract<Round, { kind: "options" }>; phase: Phase; myDone: boolean; onResult: (c: boolean) => void }) {
