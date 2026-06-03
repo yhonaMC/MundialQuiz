@@ -87,14 +87,17 @@ const teams = [...teamSet.entries()].map(([name, code]) => ({
 const surnameLast = (s) => (s || "").split(/[\s'-]+/).filter(Boolean).at(-1) || "";
 const titleCase = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : "");
 const yearOfDob = (d) => (d ? Number(String(d).slice(0, 4)) : null);
+// Limpia placeholders del dataset ("not applicable" en mononímicos como Ederson).
+const cleanName = (s) =>
+  (s || "").replace(/\bno[t]?\s+applicable\b/gi, "").replace(/\s+/g, " ").trim();
 
 const hist = new Map();
 for (const p of PLAYERS) {
   if (!p.playerId) continue; // 2026 (sin playerId) se procesa aparte
   const cur = hist.get(p.playerId) || {
     id: p.playerId,
-    nombre: p.officialPlayerName,
-    apellido: normalize(surnameLast(p.lastNames || p.officialPlayerName)),
+    nombre: cleanName(p.officialPlayerName) || titleCase(p.lastNames || "") || "Jugador",
+    apellido: normalize(surnameLast(p.lastNames || cleanName(p.officialPlayerName))),
     nacimiento: yearOfDob(p.dateOfBirth),
     entries: [],
   };
@@ -117,7 +120,7 @@ for (const p of PLAYERS) {
   } else {
     extra.push({
       id: p.id,
-      nombre: `${toks.slice(1).join(" ")} ${titleCase(toks[0] || "")}`.trim(),
+      nombre: cleanName(`${toks.slice(1).join(" ")} ${titleCase(toks[0] || "")}`) || "Jugador",
       apellido,
       nacimiento: yr,
       entries: [entry],
@@ -133,7 +136,7 @@ for (const p of [...hist.values(), ...extra]) {
   const conH = p.entries.filter((e) => e.h != null).sort((a, b) => b.year - a.year);
   players.push({
     id: p.id,
-    nombre: p.nombre,
+    nombre: cleanName(p.nombre) || titleCase(p.apellido) || "Jugador",
     apellido: p.apellido,
     paisEs: paisEs(last.team),
     confederacion: confederacion(last.team),
