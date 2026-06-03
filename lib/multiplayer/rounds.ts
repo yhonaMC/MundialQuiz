@@ -62,19 +62,20 @@ export function buildRound(game: string): Round {
   }
 
   if (game === "penales") {
-    return { kind: "penales", ...pickOptionsQuestion() };
+    // Solo preguntas de 4 opciones: un penal con 50% de acierto al azar (V/F) sería regalado.
+    return { kind: "penales", ...pickOptionsQuestion(true) };
   }
 
-  // quiz (por defecto): primera pregunta con opciones (no numérica).
-  return { kind: "options", ...pickOptionsQuestion() };
+  // quiz (por defecto): primera pregunta con opciones (no numérica), V/F incluido.
+  return { kind: "options", ...pickOptionsQuestion(false) };
 }
 
-// Pregunta de opción múltiple (no numérica) del motor de trivia, dificultad media.
-function pickOptionsQuestion(): { prompt: string; sub?: string; options: string[]; answer: number } {
+// Pregunta con opciones (no numérica) del motor de trivia, dificultad media.
+function pickOptionsQuestion(soloCuatro: boolean): { prompt: string; sub?: string; options: string[]; answer: number } {
   const rng = createRng((Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0);
   for (let i = 0; i < 25; i++) {
     const q = generateQuestion({ tournaments: TOURNAMENTS, targetDifficulty: 2, tournamentFilter: "all", seenIds: [], rng });
-    if (q.format !== "number" && q.options && q.options.length === 4 && q.answerIndex != null) {
+    if (q.format !== "number" && q.options && (!soloCuatro || q.options.length === 4) && q.answerIndex != null) {
       return {
         prompt: q.prompt,
         sub: q.tournamentYear ? `Mundial ${q.tournamentYear}` : undefined,
