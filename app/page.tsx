@@ -9,6 +9,28 @@ const grid = {
 };
 
 // Mini casillas estilo Wordle para la card de La Incógnita.
+// Tres fichas de jugador: dos "conectadas" (verde) y una fuera (gris).
+function Tokens() {
+  const toks: [string, string][] = [
+    ["var(--color-green)", "var(--color-navy-deep)"],
+    ["var(--color-green)", "var(--color-navy-deep)"],
+    ["rgba(255,255,255,0.25)", "#fff"],
+  ];
+  return (
+    <div className="flex gap-1.5">
+      {toks.map(([bg, fg], i) => (
+        <span
+          key={i}
+          className="grid h-10 w-10 place-items-center rounded-full text-sm font-black"
+          style={{ backgroundColor: bg, color: fg }}
+        >
+          {i + 1}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function MiniTiles() {
   const tiles: [string, string, string][] = [
     ["M", "var(--color-green)", "var(--color-navy-deep)"],
@@ -76,6 +98,13 @@ export default function Home() {
           title={<>La Incógnita<br />Mundialera</>}
           subtitle="Adivina el jugador o la selección oculta en 6 intentos. ¡Una distinta cada vez!"
           visual={<MiniTiles />}
+        />
+        <GameCard
+          href="/conexion"
+          accent="var(--color-red)"
+          title={<>La Conexión<br />Mundialera</>}
+          subtitle="6 jugadores, 3 comparten algo. Descubre la conexión y selecciónalos."
+          visual={<Tokens />}
         />
       </motion.div>
     </main>
