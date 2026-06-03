@@ -1,9 +1,13 @@
-import { PLAYERS } from "@/lib/db/players";
-import { getFoto } from "@/lib/db/queries";
+import { conFoto } from "@/lib/db/queries";
 import type { Player } from "@/lib/db/types";
 
+// Pool del juego: SOLO jugadores con foto disponible (las cartas son visuales;
+// una silueta sin imagen arruina la ronda). Calculado una vez por módulo,
+// con la foto ya adjunta por conFoto().
+const POOL: readonly Player[] = conFoto();
+
 export interface Ronda {
-  players: Player[]; // 6 jugadores barajados (con foto si existe)
+  players: Player[]; // 6 jugadores barajados (todos con foto)
   matchIds: string[]; // los 3 que comparten la relación
   label: string; // relación revelada
   tipo: string; // categoría de la pista
@@ -25,7 +29,7 @@ function sample<T>(arr: readonly T[], n: number): T[] {
 }
 function valuesWithEnough(key: (p: Player) => string): string[] {
   const counts = new Map<string, number>();
-  for (const p of PLAYERS) counts.set(key(p), (counts.get(key(p)) ?? 0) + 1);
+  for (const p of POOL) counts.set(key(p), (counts.get(key(p)) ?? 0) + 1);
   return [...counts.entries()].filter(([, n]) => n >= MATCH).map(([v]) => v);
 }
 
@@ -54,7 +58,7 @@ const RELACIONES: Relacion[] = [
     tipo: "Mundial",
     build: () => {
       const counts = new Map<number, number>();
-      for (const p of PLAYERS) for (const y of p.mundiales) counts.set(y, (counts.get(y) ?? 0) + 1);
+      for (const p of POOL) for (const y of p.mundiales) counts.set(y, (counts.get(y) ?? 0) + 1);
       const years = [...counts.entries()].filter(([, n]) => n >= MATCH).map(([y]) => y);
       const year = pick(years);
       return { test: (p) => p.mundiales.includes(year), label: `Los 3 jugaron el Mundial ${year}` };
@@ -93,7 +97,7 @@ const RELACIONES: Relacion[] = [
     tipo: "compañeros",
     build: () => {
       const counts = new Map<string, number>();
-      for (const p of PLAYERS) for (const y of p.mundiales) {
+      for (const p of POOL) for (const y of p.mundiales) {
         const k = `${p.paisEs}|${y}`;
         counts.set(k, (counts.get(k) ?? 0) + 1);
       }
@@ -118,27 +122,23 @@ const RELACIONES: Relacion[] = [
   },
 ];
 
-const withFoto = (p: Player): Player => {
-  const foto = getFoto(p.id);
-  return foto ? { ...p, foto } : p;
-};
-
 // Genera una ronda: 3 jugadores que cumplen una relación + 3 distractores que no.
+// Todos salen del POOL (con foto adjunta), así ninguna carta queda sin imagen.
 export function generarRonda(): Ronda {
   // Intenta hasta encontrar una relación con suficientes coincidencias y distractores.
   for (let intento = 0; intento < 20; intento++) {
     const rel = pick(RELACIONES);
     const built = rel.build();
     if (!built) continue;
-    const matchPool = PLAYERS.filter(built.test);
-    const distractPool = PLAYERS.filter(
+    const matchPool = POOL.filter(built.test);
+    const distractPool = POOL.filter(
       (p) => !built.test(p) && (built.distract ? built.distract(p) : true),
     );
     if (matchPool.length < MATCH || distractPool.length < TOTAL - MATCH) continue;
 
     const matched = sample(matchPool, MATCH);
     const distractors = sample(distractPool, TOTAL - MATCH);
-    const players = sample([...matched, ...distractors], TOTAL).map(withFoto);
+    const players = sample([...matched, ...distractors], TOTAL);
     return {
       players,
       matchIds: matched.map((p) => p.id),
@@ -147,10 +147,10 @@ export function generarRonda(): Ronda {
     };
   }
   // Fallback ultra-seguro: relación "campeón".
-  const matched = sample(PLAYERS.filter((p) => p.campeon), MATCH);
-  const distractors = sample(PLAYERS.filter((p) => !p.campeon), TOTAL - MATCH);
+  const matched = sample(POOL.filter((p) => p.campeon), MATCH);
+  const distractors = sample(POOL.filter((p) => !p.campeon), TOTAL - MATCH);
   return {
-    players: sample([...matched, ...distractors], TOTAL).map(withFoto),
+    players: sample([...matched, ...distractors], TOTAL),
     matchIds: matched.map((p) => p.id),
     label: "Los 3 fueron campeones del mundo",
     tipo: "campeón",

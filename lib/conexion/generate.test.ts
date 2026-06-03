@@ -15,4 +15,11 @@ describe("generarRonda", () => {
       expect(r.tipo.length).toBeGreaterThan(0);
     }
   });
+
+  it("solo usa jugadores con foto disponible", () => {
+    for (let i = 0; i < 30; i++) {
+      const r = generarRonda();
+      for (const p of r.players) expect(p.foto?.archivo).toBeTruthy();
+    }
+  });
 });
