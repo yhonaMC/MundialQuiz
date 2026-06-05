@@ -9,6 +9,7 @@ import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { PlayerCard, type Reveal } from "@/components/conexion/PlayerCard";
 import { Button } from "@/components/ui/Button";
 import { AdBanner } from "@/components/ui/AdBanner";
+import { LoaderScreen } from "@/components/ui/Loader";
 import { generarRonda, type Ronda } from "@/lib/conexion/generate";
 import { sfx } from "@/lib/sound";
 
@@ -81,12 +82,7 @@ export default function ConexionPage() {
   }, []);
 
   if (!ronda) {
-    return (
-      <main className="relative flex flex-1 items-center justify-center p-6">
-        <MemphisBackground />
-        <p className="font-black">Cargando…</p>
-      </main>
-    );
+    return <LoaderScreen label="Cargando" />;
   }
 
   const revealOf = (id: string): Reveal => {

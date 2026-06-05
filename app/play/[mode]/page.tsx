@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, use, useEffect, useState } from "react";
+import { Suspense, use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { Coins, Shuffle, X } from "lucide-react";
@@ -7,7 +7,10 @@ import { useSearchParams } from "next/navigation";
 import { getMode, type GameMode } from "@/lib/modes/modes";
 import { getTournament, TOURNAMENT_YEARS } from "@/lib/data";
 import { useGameSession } from "@/hooks/useGameSession";
+import { questionHint } from "@/lib/hints";
 import { MemphisBackground } from "@/components/ui/MemphisBackground";
+import { LoaderScreen } from "@/components/ui/Loader";
+import { Announce, useAnnounce } from "@/components/ui/Announce";
 import { QuestionCard } from "@/components/QuestionCard";
 import { Hud } from "@/components/Hud";
 import { Button } from "@/components/ui/Button";
@@ -15,12 +18,7 @@ import { Confetti } from "@/components/ui/Confetti";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 
 function LoadingScreen() {
-  return (
-    <main className="relative flex flex-1 items-center justify-center p-6">
-      <MemphisBackground />
-      <p className="font-black">Cargando…</p>
-    </main>
-  );
+  return <LoaderScreen label="Cargando" />;
 }
 
 // useSearchParams debe vivir dentro de un boundary de Suspense (requisito de Next 16).
@@ -146,12 +144,7 @@ function Game({ modeId, year }: { modeId: string; year?: number }) {
   }, []);
 
   if (seed === null) {
-    return (
-      <main className="relative flex flex-1 items-center justify-center p-6">
-        <MemphisBackground />
-        <p className="font-black">Cargando…</p>
-      </main>
-    );
+    return <LoaderScreen label="Cargando" />;
   }
   return <GameInner mode={mode} seed={seed} year={year} />;
 }
@@ -171,6 +164,22 @@ function GameInner({
     year,
   );
   const [confirmExit, setConfirmExit] = useState(false);
+  const [usedHint, setUsedHint] = useState(false);
+  const { announce, fire } = useAnnounce();
+  const announcedRef = useRef(false);
+
+  useEffect(() => {
+    if (state.status === "gameover" && !announcedRef.current) {
+      announcedRef.current = true;
+      const correct = state.history.filter((h) => h.correct).length;
+      const won = correct > 0;
+      const t = setTimeout(
+        () => fire(won ? "¡Bien jugado!" : "Fin", { variant: won ? "win" : "lose", sub: `${state.score} pts`, ms: 2600 }),
+        0,
+      );
+      return () => clearTimeout(t);
+    }
+  }, [state.status, state.history, state.score, fire]);
 
   if (state.status === "gameover") {
     const answered = state.history.length;
@@ -179,6 +188,7 @@ function GameInner({
     return (
       <main className="relative flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
         <MemphisBackground />
+        <Announce data={announce} />
         {won && <Confetti pieces={48} />}
         <motion.h1
           initial={{ opacity: 0, y: -24, scale: 0.85 }}
@@ -223,12 +233,7 @@ function GameInner({
   }
 
   if (!state.currentQuestion) {
-    return (
-      <main className="relative flex flex-1 items-center justify-center p-6">
-        <MemphisBackground />
-        <p className="font-black">Cargando pregunta…</p>
-      </main>
-    );
+    return <LoaderScreen label="Cargando pregunta" />;
   }
 
   return (
@@ -256,9 +261,14 @@ function GameInner({
       <QuestionCard
         question={state.currentQuestion}
         feedback={feedback}
-        onAnswer={answer}
-        onNext={next}
+        onAnswer={(i) => answer(i, usedHint)}
+        onNext={() => {
+          setUsedHint(false);
+          next();
+        }}
         isLast={isLast}
+        hint={questionHint(state.currentQuestion)}
+        onHint={() => setUsedHint(true)}
       />
 
       {allowCashOut && state.status === "question" && state.score > 0 && (

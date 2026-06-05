@@ -3,6 +3,7 @@
 import { createRng } from "@/lib/engine/rng";
 import { TOURNAMENTS } from "@/lib/data";
 import { generateQuestion } from "@/lib/engine/generateQuestion";
+import { questionHint } from "@/lib/hints";
 import { generarRondaQ } from "@/lib/quienes/generate";
 import { generarRonda } from "@/lib/conexion/generate";
 import { getRandomAnswer } from "@/lib/incognita/daily";
@@ -109,7 +110,7 @@ function pickOptionsQuestion(
         sub: q.tournamentYear ? `Mundial ${q.tournamentYear}` : undefined,
         options: q.options,
         answer: q.answerIndex,
-        hint: q.explanation || undefined,
+        hint: questionHint(q),
       };
     }
   }

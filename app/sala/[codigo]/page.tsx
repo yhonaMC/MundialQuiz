@@ -38,23 +38,27 @@ export default function SalaPage() {
   const { players, isHost, myId, ready, send, onEvent } = useRoom(codigo, perfil);
 
   // Eventos de la sala: selección de juego, filtro de año y empezar (sincronizados).
+  const startingRef = useRef(false);
   useEffect(() => {
     onEvent((type, payload) => {
       if (type === "select" && typeof payload.game === "string") setSeleccion(payload.game);
       if (type === "filter") setDesde(Number(payload.desde) || 0);
       if (type === "start" && typeof payload.game === "string") {
+        startingRef.current = true; // evita cerrar la sala por la salida de presencia al navegar
         sfx.whistle();
         router.push(`/sala/${codigo}/jugar?game=${payload.game}&desde=${Number(payload.desde) || 0}${isHost ? "&host=1" : ""}`);
       }
     });
   }, [onEvent, router, codigo, isHost]);
 
-  // Avisos de entrada y cambio de anfitrión.
+  // Avisos de entrada y cierre de sala si el creador (anfitrión) se va.
   const firstRef = useRef(true);
   const prevIdsRef = useRef<string[]>([]);
   const prevHostRef = useRef<string | null>(null);
   const namesRef = useRef<Record<string, string>>({});
+  const closingRef = useRef(false);
   useEffect(() => {
+    if (closingRef.current) return;
     for (const p of players) namesRef.current[p.id] = p.nombre;
     const curIds = players.map((p) => p.id);
     const hostId = players[0]?.id ?? null;
@@ -70,16 +74,20 @@ export default function SalaPage() {
         push(`${p.nombre} se unió a la sala`, { icon: "👋", silent: true });
       }
     }
+    // El creador de la sala se fue → la sala se acaba para todos (salvo al arrancar partida).
+    if (!startingRef.current && prevHostRef.current && hostId !== prevHostRef.current) {
+      closingRef.current = true;
+      push("La sala se cerró: el anfitrión salió", { icon: "⚠️" });
+      sfx.lose();
+      setTimeout(() => router.push("/multijugador"), 1800);
+      return;
+    }
     for (const id of prevIdsRef.current) {
       if (!curIds.includes(id) && id !== myId) push(`${namesRef.current[id] ?? "Alguien"} salió`, { icon: "🚪", silent: true });
     }
-    if (prevHostRef.current && hostId && prevHostRef.current !== hostId) {
-      if (hostId === myId) push("El anfitrión salió — ahora tú diriges", { icon: "👑" });
-      else push("Cambió el anfitrión de la sala", { icon: "👑" });
-    }
     prevIdsRef.current = curIds;
     prevHostRef.current = hostId;
-  }, [players, myId, push]);
+  }, [players, myId, push, router]);
 
   const copiarLink = async () => {
     try {
@@ -103,8 +111,9 @@ export default function SalaPage() {
     },
     [isHost, send],
   );
+  const puedeEmpezar = players.length >= 2;
   const empezar = () => {
-    if (!isHost) return;
+    if (!isHost || !puedeEmpezar) return;
     send("start", { game: seleccion, desde });
   };
 
@@ -192,9 +201,22 @@ export default function SalaPage() {
 
       <div className="mt-auto w-full max-w-md">
         {isHost ? (
-          <motion.button onClick={empezar} whileHover={{ scale: 1.03, y: -2 }} whileTap={{ scale: 0.96 }} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--color-green)] px-6 py-4 text-lg font-black uppercase italic text-[var(--color-navy-deep)] shadow-[0_8px_0_0_#2c8a2b]">
-            <Play className="h-6 w-6" /> Empezar
-          </motion.button>
+          <>
+            <motion.button
+              onClick={empezar}
+              disabled={!puedeEmpezar}
+              whileHover={puedeEmpezar ? { scale: 1.03, y: -2 } : undefined}
+              whileTap={puedeEmpezar ? { scale: 0.96 } : undefined}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--color-green)] px-6 py-4 text-lg font-black uppercase italic text-[var(--color-navy-deep)] shadow-[0_8px_0_0_#2c8a2b] disabled:opacity-40 disabled:shadow-none"
+            >
+              <Play className="h-6 w-6" /> Empezar
+            </motion.button>
+            {!puedeEmpezar && (
+              <p className="mt-2 text-center text-xs font-bold text-[var(--color-amber)]">
+                Necesitas al menos 2 jugadores para empezar
+              </p>
+            )}
+          </>
         ) : (
           <p className="rounded-2xl bg-white/5 px-6 py-4 text-center font-extrabold text-[var(--color-gray-light)] ring-1 ring-white/10">
             Esperando a que el anfitrión empiece…

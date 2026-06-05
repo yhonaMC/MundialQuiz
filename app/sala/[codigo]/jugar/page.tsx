@@ -8,6 +8,8 @@ import { MemphisBackground } from "@/components/ui/MemphisBackground";
 import { Confetti } from "@/components/ui/Confetti";
 import { JerseyAvatar } from "@/components/ui/JerseyAvatar";
 import { EventToasts, useEventToasts } from "@/components/ui/EventToasts";
+import { Announce, useAnnounce } from "@/components/ui/Announce";
+import { Loader } from "@/components/ui/Loader";
 import { PlayerCard, type Reveal } from "@/components/conexion/PlayerCard";
 import { Board, MAX_ATTEMPTS } from "@/components/incognita/Board";
 import { Keyboard } from "@/components/incognita/Keyboard";
@@ -45,6 +47,7 @@ export default function MatchPage() {
 
   const { players, myId, ready, send, onEvent } = useRoom(codigo, perfil, { host: isHost });
   const { toasts, push } = useEventToasts();
+  const { announce, fire } = useAnnounce();
 
   const [round, setRound] = useState<Round | null>(null);
   const [roundIdx, setRoundIdx] = useState(-1);
@@ -130,8 +133,10 @@ export default function MatchPage() {
         setResults({});
         setProg({});
         setMyDone(false);
-        if (idx === 0) sfx.whistle();
-        else sfx.tap();
+        if (idx === 0) {
+          sfx.whistle();
+          fire("¡Empieza!", { variant: "start", ms: 1600 });
+        } else sfx.tap();
         if (isHost) {
           if (roundTimer.current) clearTimeout(roundTimer.current);
           roundTimer.current = setTimeout(() => hostReveal(idx), msRef.current);
@@ -175,7 +180,7 @@ export default function MatchPage() {
         setScores((p.scores as Record<string, number>) || {});
       }
     });
-  }, [onEvent, isHost, hostReveal, myId, nameOf, push]);
+  }, [onEvent, isHost, hostReveal, myId, nameOf, push, fire]);
 
   // El anfitrión arranca la primera ronda cuando el canal está listo
   // (con un margen para que el resto se suscriba y no se pierda la ronda 1).
@@ -214,10 +219,16 @@ export default function MatchPage() {
       const vals = Object.values(scores);
       const my = scores[myId] ?? 0;
       const max = vals.length ? Math.max(...vals) : 0;
-      if (my > 0 && my >= max) sfx.win();
-      else sfx.lose();
+      const gane = my > 0 && my >= max;
+      if (gane) {
+        sfx.win();
+        fire("¡Ganaste!", { variant: "win", sub: `${my} pts`, ms: 2600 });
+      } else {
+        sfx.lose();
+        fire("Fin", { variant: "lose", sub: "¡A la revancha!", ms: 2600 });
+      }
     }
-  }, [phase, scores, myId]);
+  }, [phase, scores, myId, fire]);
 
   // Avisos de entrada/salida y detección de que el anfitrión se fue.
   const firstPresenceRef = useRef(true);
@@ -240,12 +251,12 @@ export default function MatchPage() {
         push(`${p.nombre} se unió`, { icon: "👋", silent: true });
       }
     }
-    // El anfitrión se fue → llevar a los demás de vuelta a la sala.
+    // El anfitrión (creador) se fue → la sala se acaba para todos.
     if (!isHost && hostWasPresentRef.current && !hostPresent && curIds.length > 0 && !leavingRef.current) {
       leavingRef.current = true;
-      push("El anfitrión salió de la sala", { icon: "⚠️" });
+      push("La sala se cerró: el anfitrión salió", { icon: "⚠️" });
       sfx.lose();
-      setTimeout(() => router.push(`/sala/${codigo}`), 1600);
+      setTimeout(() => router.push("/multijugador"), 1800);
     } else {
       // Salidas normales (no anfitrión)
       for (const id of prevIdsRef.current) {
@@ -289,6 +300,7 @@ export default function MatchPage() {
     return (
       <main className="relative flex flex-1 flex-col items-center gap-4 px-4 py-8 text-center">
         <MemphisBackground />
+        <Announce data={announce} />
         <Confetti pieces={64} />
         <Trophy className="h-12 w-12 text-[var(--color-green)]" />
         <h1 className="text-3xl font-black uppercase italic">Resultados</h1>
@@ -321,6 +333,7 @@ export default function MatchPage() {
     <main className="relative flex flex-1 flex-col items-center gap-3 px-4 py-6">
       <MemphisBackground />
       <EventToasts toasts={toasts} />
+      <Announce data={announce} />
 
       {/* Cabecera */}
       <div className="flex w-full max-w-xl items-center justify-between gap-2">
@@ -381,7 +394,9 @@ export default function MatchPage() {
       </div>
 
       {!round ? (
-        <p className="mt-10 font-black">Conectando…</p>
+        <div className="mt-10">
+          <Loader label="Conectando" />
+        </div>
       ) : (
         <RoundView key={roundIdx} round={round} phase={phase} myDone={myDone} onResult={responder} onProgress={sendProg} players={players} shots={shots} roundIdx={roundIdx} myId={myId} />
       )}

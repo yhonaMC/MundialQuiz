@@ -7,6 +7,7 @@ import { OddOneOut } from "@/components/formats/OddOneOut";
 import { NumberInput } from "@/components/formats/NumberInput";
 import { Confetti } from "@/components/ui/Confetti";
 import { Button } from "@/components/ui/Button";
+import { PistaButton } from "@/components/ui/PistaButton";
 
 export interface FeedbackInfo {
   correct: boolean;
@@ -32,12 +33,16 @@ export function QuestionCard({
   onAnswer,
   onNext,
   isLast,
+  hint,
+  onHint,
 }: {
   question: Question;
   feedback: FeedbackInfo | null;
   onAnswer: (answer: number) => void;
   onNext: () => void;
   isLast: boolean;
+  hint?: string;
+  onHint?: () => void;
 }) {
   const answered = feedback !== null;
   const wrong = answered && !feedback.correct;
@@ -68,6 +73,12 @@ export function QuestionCard({
         )}
 
         <h2 className="mb-5 text-xl font-black leading-tight sm:text-2xl">{question.prompt}</h2>
+
+        {!answered && hint && (
+          <div className="mb-4">
+            <PistaButton hint={hint} onReveal={onHint} />
+          </div>
+        )}
 
         {question.format === "multiple-choice" && (
           <MultipleChoice question={question} disabled={answered} onAnswer={onAnswer} />

@@ -1,17 +1,21 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowLeft, Check, Hand, Trophy, Users } from "lucide-react";
 import { MemphisBackground } from "@/components/ui/MemphisBackground";
 import { Button } from "@/components/ui/Button";
 import { Confetti } from "@/components/ui/Confetti";
+import { PistaButton } from "@/components/ui/PistaButton";
+import { LoaderScreen } from "@/components/ui/Loader";
+import { Announce, useAnnounce } from "@/components/ui/Announce";
 import { Marcador } from "@/components/penales/Marcador";
 import { MultipleChoice } from "@/components/formats/MultipleChoice";
 import { TrueFalse } from "@/components/formats/TrueFalse";
 import { OddOneOut } from "@/components/formats/OddOneOut";
 import { NumberInput } from "@/components/formats/NumberInput";
 import { usePenales } from "@/hooks/usePenales";
+import { questionHint } from "@/lib/hints";
 import { AI_GOAL_PROBABILITY, NIVELES, NIVEL_LABEL, type Nivel } from "@/lib/penales/ai";
 import { loadData } from "@/lib/storage/localStore";
 
@@ -116,12 +120,27 @@ function PenalesGame({
 }) {
   const { state, question, lastPlayerGoal, lastAiGoal, answer, aiShot, nextRound, playerGoals, aiGoals } =
     usePenales(nivel, seed);
+  const { announce, fire } = useAnnounce();
+  const announcedRef = useRef(false);
+
+  useEffect(() => {
+    if (state.phase === "gameover" && state.winner !== null && !announcedRef.current) {
+      announcedRef.current = true;
+      const won = state.winner === "player";
+      const t = setTimeout(
+        () => fire(won ? "¡Ganaste la tanda!" : "La IA ganó", { variant: won ? "win" : "lose", ms: 2600 }),
+        0,
+      );
+      return () => clearTimeout(t);
+    }
+  }, [state.phase, state.winner, fire]);
 
   if (state.phase === "gameover") {
     const won = state.winner === "player";
     return (
       <main className="relative flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
         <MemphisBackground />
+        <Announce data={announce} />
         {won && <Confetti pieces={36} />}
         {won ? <Trophy className="h-12 w-12 text-[var(--color-amber)]" /> : <Hand className="h-12 w-12 text-[var(--color-red)]" />}
         <h1 className="text-3xl font-black uppercase italic">
@@ -154,12 +173,7 @@ function PenalesGame({
   }
 
   if (!question) {
-    return (
-      <main className="relative flex flex-1 items-center justify-center p-6">
-        <MemphisBackground />
-        <p className="font-black">Cargando penal…</p>
-      </main>
-    );
+    return <LoaderScreen label="Cargando penal" />;
   }
 
   return (
@@ -186,6 +200,9 @@ function PenalesGame({
 
         {state.phase === "question" && (
           <>
+            <div className="mb-4">
+              <PistaButton key={question.id} hint={questionHint(question)} penalty={false} />
+            </div>
             {question.format === "multiple-choice" && (
               <MultipleChoice question={question} onAnswer={answer} />
             )}

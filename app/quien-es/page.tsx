@@ -8,6 +8,8 @@ import { Confetti } from "@/components/ui/Confetti";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { Button } from "@/components/ui/Button";
 import { AdBanner } from "@/components/ui/AdBanner";
+import { PistaButton } from "@/components/ui/PistaButton";
+import { LoaderScreen } from "@/components/ui/Loader";
 import { generarRondaQ, type RondaQ } from "@/lib/quienes/generate";
 import { sfx } from "@/lib/sound";
 
@@ -21,6 +23,7 @@ export default function QuienEsPage() {
   const [lives, setLives] = useState(VIDAS);
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
+  const [usedHint, setUsedHint] = useState(false);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- init solo-cliente (fotos + random)
@@ -35,7 +38,7 @@ export default function QuienEsPage() {
       setPicked(i);
       if (correct) {
         sfx.correct();
-        setScore((s) => s + 100 * (streak + 1));
+        setScore((s) => s + Math.round(100 * (streak + 1) * (usedHint ? 0.5 : 1)));
         setStreak((k) => k + 1);
         setStatus("revealed");
       } else {
@@ -46,12 +49,13 @@ export default function QuienEsPage() {
         setStatus(left <= 0 ? "gameover" : "revealed");
       }
     },
-    [ronda, status, streak, lives],
+    [ronda, status, streak, lives, usedHint],
   );
 
   const siguiente = useCallback(() => {
     setRonda(generarRondaQ());
     setPicked(null);
+    setUsedHint(false);
     setStatus("playing");
   }, []);
 
@@ -60,18 +64,18 @@ export default function QuienEsPage() {
     setLives(VIDAS);
     setScore(0);
     setStreak(0);
+    setUsedHint(false);
     setRonda(generarRondaQ());
     setPicked(null);
     setStatus("playing");
   }, []);
 
+  const pistaTexto = ronda
+    ? `${ronda.player.posicion} de ${ronda.player.paisEs}${ronda.player.mundiales.length ? ` · Mundial ${Math.max(...ronda.player.mundiales)}` : ""}`
+    : "";
+
   if (!ready) {
-    return (
-      <main className="relative flex flex-1 items-center justify-center p-6">
-        <MemphisBackground />
-        <p className="font-black">Cargando…</p>
-      </main>
-    );
+    return <LoaderScreen label="Cargando" />;
   }
 
   // Sin fotos descargadas todavía.
@@ -143,6 +147,10 @@ export default function QuienEsPage() {
           <p className="-mt-1 max-w-[13rem] text-center text-[10px] text-[var(--color-gray-light)]/50">
             Foto: {ronda.player.foto!.autor} · {ronda.player.foto!.licencia}
           </p>
+
+          {status === "playing" && (
+            <PistaButton key={ronda.player.id} hint={pistaTexto} onReveal={() => setUsedHint(true)} />
+          )}
 
           {/* Opciones */}
           <div className="grid w-full max-w-sm gap-2.5">

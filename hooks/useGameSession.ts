@@ -95,7 +95,7 @@ export function useGameSession(mode: GameMode, seed: number, tournamentOverride?
   );
 
   const answer = useCallback(
-    (raw: number) => {
+    (raw: number, hinted = false) => {
       if (state.status !== "question" || !state.currentQuestion) return;
       const q = state.currentQuestion;
 
@@ -113,7 +113,7 @@ export function useGameSession(mode: GameMode, seed: number, tournamentOverride?
       const timeRemainingRatio =
         mode.timer && state.timeRemaining != null ? state.timeRemaining / mode.timer.totalSeconds : undefined;
 
-      const points = scoreAnswer({
+      const rawPoints = scoreAnswer({
         correct,
         difficulty: q.difficulty,
         streak: state.streak,
@@ -123,6 +123,7 @@ export function useGameSession(mode: GameMode, seed: number, tournamentOverride?
         timeRemainingRatio,
         closeness,
       });
+      const points = hinted ? Math.round(rawPoints * 0.5) : rawPoints; // la pista resta 50%
 
       setFeedback({ correct, pointsEarned: points, exact });
       if (correct) sfx.correct();
