@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Check, Hand, Trophy, Users } from "lucide-react";
 import { MemphisBackground } from "@/components/ui/MemphisBackground";
 import { Button } from "@/components/ui/Button";
 import { Confetti } from "@/components/ui/Confetti";
@@ -59,7 +59,7 @@ function LevelSelect({ mounted, onPick }: { mounted: boolean; onPick: (n: Nivel)
   return (
     <main className="relative flex flex-1 flex-col items-center justify-center gap-6 p-6">
       <MemphisBackground />
-      <h1 className="text-center text-3xl font-black uppercase italic">⚽ Penales Quiz</h1>
+      <h1 className="text-center text-3xl font-black uppercase italic">Penales Quiz</h1>
       <p className="max-w-md text-center text-sm text-[var(--color-gray-light)]/80">
         Cada pregunta es un penal: acierta y es gol, falla y lo ataja el portero. Gana la tanda al
         mejor de 5. Empate = muerte súbita. Elige un nivel para retar a la IA, o juega contra tus
@@ -93,7 +93,7 @@ function LevelSelect({ mounted, onPick }: { mounted: boolean; onPick: (n: Nivel)
         href="/multijugador"
         className="flex w-full max-w-md items-center justify-between rounded-2xl bg-[var(--color-green)] px-5 py-4 font-black text-[var(--color-navy-deep)] shadow-lg"
       >
-        <span>👥 Jugar de 2 o más</span>
+        <span className="flex items-center gap-2"><Users className="h-5 w-5" /> Jugar de 2 o más</span>
         <span className="text-xs font-bold uppercase">Multijugador →</span>
       </Link>
       <Link href="/" className="text-sm text-white/60 underline">
@@ -123,8 +123,9 @@ function PenalesGame({
       <main className="relative flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
         <MemphisBackground />
         {won && <Confetti pieces={36} />}
+        {won ? <Trophy className="h-12 w-12 text-[var(--color-amber)]" /> : <Hand className="h-12 w-12 text-[var(--color-red)]" />}
         <h1 className="text-3xl font-black uppercase italic">
-          {won ? "¡Ganaste la tanda! 🏆" : "La IA ganó esta vez… 🧤"}
+          {won ? "¡Ganaste la tanda!" : "La IA ganó esta vez…"}
         </h1>
         <p className="text-6xl font-black">
           <span style={{ color: "var(--color-green)" }}>{playerGoals}</span>
@@ -178,7 +179,7 @@ function PenalesGame({
 
       <div className="relative w-full max-w-xl rounded-3xl bg-[var(--color-navy)] p-6 shadow-2xl ring-1 ring-white/10">
         <span className="mb-3 inline-block rounded-full bg-[var(--color-green)] px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-[var(--color-navy-deep)]">
-          {state.suddenDeath ? "⚡ Muerte súbita" : `Penal ${state.round} de 5`} · {NIVEL_LABEL[nivel]}
+          {state.suddenDeath ? "Muerte súbita" : `Penal ${state.round} de 5`} · {NIVEL_LABEL[nivel]}
         </span>
 
         <h2 className="mb-5 text-xl font-black leading-tight sm:text-2xl">{question.prompt}</h2>
@@ -202,10 +203,10 @@ function PenalesGame({
           >
             {lastPlayerGoal && <Confetti pieces={18} />}
             <p
-              className="text-3xl font-black uppercase italic"
+              className="flex items-center justify-center gap-2 text-3xl font-black uppercase italic"
               style={{ color: lastPlayerGoal ? "var(--color-green)" : "var(--color-red)" }}
             >
-              {lastPlayerGoal ? "⚽ ¡GOOOL!" : "🧤 ¡Atajado!"}
+              {lastPlayerGoal ? <><Check className="h-7 w-7" /> ¡GOOOL!</> : <><Hand className="h-7 w-7" /> ¡Atajado!</>}
             </p>
             <p className="mt-2 text-sm text-white/80">{question.explanation}</p>
             <div className="mt-4">
@@ -223,10 +224,10 @@ function PenalesGame({
             className="rounded-2xl bg-white/10 p-4 text-center"
           >
             <p
-              className="text-3xl font-black uppercase italic"
+              className="flex items-center justify-center gap-2 text-3xl font-black uppercase italic"
               style={{ color: lastAiGoal ? "var(--color-red)" : "var(--color-green)" }}
             >
-              {lastAiGoal ? "La IA anotó ⚽" : "¡La IA falló! 🧤"}
+              {lastAiGoal ? <>La IA anotó <Check className="h-7 w-7" /></> : <>¡La IA falló! <Hand className="h-7 w-7" /></>}
             </p>
             <div className="mt-4">
               <Button variant="accent" onClick={nextRound}>

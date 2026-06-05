@@ -13,6 +13,7 @@ const mk = (nombre: string, posicion: Player["posicion"]): Player => ({
   mundiales: [2018],
   campeon: false,
   nacimiento: 1990,
+  altura: null,
 });
 
 describe("construirOpciones", () => {

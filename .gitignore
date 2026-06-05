@@ -49,3 +49,6 @@ next-env.d.ts
 
 # supabase db password (local, no commitear)
 .supabase-db-password.txt
+
+# supabase CLI temp (link local)
+/supabase/.temp/

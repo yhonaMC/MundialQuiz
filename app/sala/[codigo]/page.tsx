@@ -1,25 +1,23 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { ArrowLeft, Copy, Crown, Play, Wifi, WifiOff } from "lucide-react";
 import { MemphisBackground } from "@/components/ui/MemphisBackground";
+import { JerseyAvatar } from "@/components/ui/JerseyAvatar";
+import { EventToasts, useEventToasts } from "@/components/ui/EventToasts";
 import { GameTile } from "@/components/GameTile";
 import { GAMES } from "@/lib/games";
-import { AVATAR_COLORS, iniciales, loadPerfil } from "@/lib/perfil";
+import { AVATAR_COLORS, loadPerfil } from "@/lib/perfil";
 import { realtimeDisponible } from "@/lib/supabase";
+import { sfx } from "@/lib/sound";
 import { useRoom } from "@/lib/multiplayer/useRoom";
+import { MUNDIAL_DESDE } from "@/lib/multiplayer/rounds";
 
 const GAME_ENTRIES = Object.entries(GAMES);
-
-function Avatar({ nombre, color }: { nombre: string; color: string }) {
-  return (
-    <span className="grid h-9 w-9 place-items-center rounded-full text-xs font-black text-[var(--color-navy-deep)]" style={{ backgroundColor: color }}>
-      {iniciales(nombre)}
-    </span>
-  );
-}
+// El filtro de año solo afecta a juegos basados en datos por año.
+const FILTRABLES = new Set(["quiz", "quien-es", "penales"]);
 
 export default function SalaPage() {
   const params = useParams<{ codigo: string }>();
@@ -28,7 +26,8 @@ export default function SalaPage() {
 
   const [perfil, setPerfil] = useState({ nombre: "Tú", color: AVATAR_COLORS[0] });
   const [seleccion, setSeleccion] = useState(GAME_ENTRIES[0][0]);
-  const [toast, setToast] = useState<string | null>(null);
+  const [desde, setDesde] = useState(0);
+  const { toasts, push } = useEventToasts();
 
   useEffect(() => {
     const p = loadPerfil();
@@ -36,28 +35,58 @@ export default function SalaPage() {
     setPerfil({ nombre: p.nombre || "Tú", color: p.color });
   }, []);
 
-  const { players, isHost, ready, send, onEvent } = useRoom(codigo, perfil);
+  const { players, isHost, myId, ready, send, onEvent } = useRoom(codigo, perfil);
 
-  // Eventos de la sala: selección de juego y empezar (sincronizados).
+  // Eventos de la sala: selección de juego, filtro de año y empezar (sincronizados).
   useEffect(() => {
     onEvent((type, payload) => {
       if (type === "select" && typeof payload.game === "string") setSeleccion(payload.game);
+      if (type === "filter") setDesde(Number(payload.desde) || 0);
       if (type === "start" && typeof payload.game === "string") {
-        router.push(`/sala/${codigo}/jugar?game=${payload.game}${isHost ? "&host=1" : ""}`);
+        sfx.whistle();
+        router.push(`/sala/${codigo}/jugar?game=${payload.game}&desde=${Number(payload.desde) || 0}${isHost ? "&host=1" : ""}`);
       }
     });
   }, [onEvent, router, codigo, isHost]);
 
-  const flash = (m: string) => {
-    setToast(m);
-    window.setTimeout(() => setToast(null), 1800);
-  };
+  // Avisos de entrada y cambio de anfitrión.
+  const firstRef = useRef(true);
+  const prevIdsRef = useRef<string[]>([]);
+  const prevHostRef = useRef<string | null>(null);
+  const namesRef = useRef<Record<string, string>>({});
+  useEffect(() => {
+    for (const p of players) namesRef.current[p.id] = p.nombre;
+    const curIds = players.map((p) => p.id);
+    const hostId = players[0]?.id ?? null;
+    if (firstRef.current) {
+      firstRef.current = false;
+      prevIdsRef.current = curIds;
+      prevHostRef.current = hostId;
+      return;
+    }
+    for (const p of players) {
+      if (p.id !== myId && !prevIdsRef.current.includes(p.id)) {
+        sfx.join();
+        push(`${p.nombre} se unió a la sala`, { icon: "👋", silent: true });
+      }
+    }
+    for (const id of prevIdsRef.current) {
+      if (!curIds.includes(id) && id !== myId) push(`${namesRef.current[id] ?? "Alguien"} salió`, { icon: "🚪", silent: true });
+    }
+    if (prevHostRef.current && hostId && prevHostRef.current !== hostId) {
+      if (hostId === myId) push("El anfitrión salió — ahora tú diriges", { icon: "👑" });
+      else push("Cambió el anfitrión de la sala", { icon: "👑" });
+    }
+    prevIdsRef.current = curIds;
+    prevHostRef.current = hostId;
+  }, [players, myId, push]);
+
   const copiarLink = async () => {
     try {
       await navigator.clipboard.writeText(`${window.location.origin}/sala/${codigo}`);
-      flash("¡Link copiado!");
+      push("¡Link copiado!", { icon: "🔗" });
     } catch {
-      flash("No se pudo copiar");
+      push("No se pudo copiar", { icon: "⚠️" });
     }
   };
 
@@ -66,9 +95,17 @@ export default function SalaPage() {
     setSeleccion(game);
     send("select", { game });
   };
+  const elegirDesde = useCallback(
+    (v: number) => {
+      if (!isHost) return;
+      setDesde(v);
+      send("filter", { desde: v });
+    },
+    [isHost, send],
+  );
   const empezar = () => {
     if (!isHost) return;
-    send("start", { game: seleccion });
+    send("start", { game: seleccion, desde });
   };
 
   // Jugadores a mostrar (si aún no conecta, muéstrate a ti mismo).
@@ -79,14 +116,7 @@ export default function SalaPage() {
   return (
     <main className="relative flex flex-1 flex-col items-center gap-5 px-4 py-8">
       <MemphisBackground />
-
-      <AnimatePresence>
-        {toast && (
-          <motion.div initial={{ opacity: 0, y: -16, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="fixed left-1/2 top-20 z-50 -translate-x-1/2 rounded-2xl bg-white px-5 py-3 font-extrabold text-[var(--color-navy-deep)] shadow-2xl">
-            {toast}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <EventToasts toasts={toasts} />
 
       <div className="flex w-full max-w-md items-center justify-between">
         <Link href="/" className="flex items-center gap-1 text-sm font-bold text-[var(--color-gray-light)]/80 hover:text-white">
@@ -114,7 +144,7 @@ export default function SalaPage() {
         <div className="flex flex-wrap gap-2">
           {lista.map((j, i) => (
             <motion.div key={j.id} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.05 }} className="flex items-center gap-2 rounded-full bg-white/5 py-1.5 pl-1.5 pr-3 ring-1 ring-white/10">
-              <Avatar nombre={j.nombre} color={j.color} />
+              <JerseyAvatar nombre={j.nombre} size={34} ring={j.color} />
               <span className="text-sm font-extrabold">{j.nombre}</span>
               {i === 0 && <Crown className="h-3.5 w-3.5 text-[var(--color-amber)]" />}
             </motion.div>
@@ -130,6 +160,33 @@ export default function SalaPage() {
           {GAME_ENTRIES.map(([key, info]) => (
             <GameTile key={key} game={key} nombre={info.nombre} accent={info.accent} selected={seleccion === key} disabled={!isHost} onClick={() => elegir(key)} />
           ))}
+        </div>
+      </div>
+
+      {/* Filtro de Mundial (desde año). Aplica a Quiz, ¿Quién es? y Penales. */}
+      <div className="w-full max-w-md">
+        <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[var(--color-gray-light)]/60">
+          Mundiales {!FILTRABLES.has(seleccion) && <span className="text-[var(--color-gray-light)]/40">· (no aplica a {GAMES[seleccion]?.nombre})</span>}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {MUNDIAL_DESDE.map((o) => {
+            const activo = desde === o.value;
+            return (
+              <button
+                key={o.value}
+                onClick={() => elegirDesde(o.value)}
+                disabled={!isHost}
+                className="rounded-full px-4 py-2 text-sm font-extrabold ring-1 transition disabled:opacity-60"
+                style={{
+                  backgroundColor: activo ? "var(--color-green)" : "rgba(255,255,255,0.06)",
+                  color: activo ? "var(--color-navy-deep)" : "#fff",
+                  borderColor: activo ? "var(--color-green)" : "rgba(255,255,255,0.12)",
+                }}
+              >
+                {o.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 

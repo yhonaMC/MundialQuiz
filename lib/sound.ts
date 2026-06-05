@@ -52,4 +52,16 @@ export const sfx = {
     blip(300, 0.18, "sine", 0.04);
     window.setTimeout(() => blip(180, 0.28, "sine", 0.04), 150);
   },
+  // Alguien entra a la sala: dos notas ascendentes tipo "ping" alegre.
+  join: () => {
+    blip(740, 0.08, "triangle", 0.045);
+    window.setTimeout(() => blip(1108, 0.12, "triangle", 0.045), 90);
+  },
+  // Notificación de evento (toast): blip corto y discreto.
+  notify: () => blip(620, 0.07, "sine", 0.035),
+  // Silbato de inicio de partida: barrido corto.
+  whistle: () => {
+    blip(1320, 0.1, "square", 0.03);
+    window.setTimeout(() => blip(1760, 0.16, "square", 0.03), 90);
+  },
 };

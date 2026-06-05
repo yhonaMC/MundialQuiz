@@ -14,12 +14,14 @@ export interface OptionsRound {
   sub?: string;
   options: string[];
   answer: number;
+  hint?: string; // pista de texto (no revela la respuesta)
 }
 export interface ConexionRound {
   kind: "conexion";
   cards: { id: string; nombre: string; paisEs: string; posicion: string; foto?: string }[];
   correct: string[];
   label: string;
+  hint?: string;
 }
 export interface IncognitaRound {
   kind: "incognita";
@@ -32,16 +34,35 @@ export interface PenalesRound {
   sub?: string;
   options: string[];
   answer: number;
+  hint?: string;
 }
 export type Round = OptionsRound | ConexionRound | IncognitaRound | PenalesRound;
 
 export const TOTAL_ROUNDS = 5;
 
-export function buildRound(game: string): Round {
+// Opciones de filtro "desde año del Mundial" que elige el anfitrión en la sala.
+// value 0 = todos. Aplica a Quiz, ¿Quién es? y Penales (datos con año).
+export const MUNDIAL_DESDE: { label: string; value: number }[] = [
+  { label: "Todos", value: 0 },
+  { label: "≥ 2002", value: 2002 },
+  { label: "≥ 2010", value: 2010 },
+  { label: "Solo 2022", value: 2022 },
+];
+
+// `desde`: año mínimo del Mundial (0 = todos). Solo afecta a juegos basados en datos por año.
+export function buildRound(game: string, desde = 0): Round {
   if (game === "quien-es") {
-    const r = generarRondaQ();
+    const r = generarRondaQ(desde);
     if (r?.player.foto) {
-      return { kind: "options", foto: r.player.foto.archivo, sub: "¿Quién es?", options: r.opciones, answer: r.correcta };
+      const pl = r.player;
+      return {
+        kind: "options",
+        foto: r.player.foto.archivo,
+        sub: "¿Quién es?",
+        options: r.opciones,
+        answer: r.correcta,
+        hint: `${pl.posicion} de ${pl.paisEs}${pl.mundiales.length ? ` · Mundial ${Math.max(...pl.mundiales)}` : ""}`,
+      };
     }
     // sin fotos → cae a quiz
   }
@@ -53,6 +74,7 @@ export function buildRound(game: string): Round {
       cards: r.players.map((p) => ({ id: p.id, nombre: p.nombre, paisEs: p.paisEs, posicion: p.posicion, foto: p.foto?.archivo })),
       correct: r.matchIds,
       label: r.label,
+      hint: `La conexión es por: ${r.tipo}`,
     };
   }
 
@@ -63,24 +85,31 @@ export function buildRound(game: string): Round {
 
   if (game === "penales") {
     // Solo preguntas de 4 opciones: un penal con 50% de acierto al azar (V/F) sería regalado.
-    return { kind: "penales", ...pickOptionsQuestion(true) };
+    return { kind: "penales", ...pickOptionsQuestion(true, desde) };
   }
 
   // quiz (por defecto): primera pregunta con opciones (no numérica), V/F incluido.
-  return { kind: "options", ...pickOptionsQuestion(false) };
+  return { kind: "options", ...pickOptionsQuestion(false, desde) };
 }
 
 // Pregunta con opciones (no numérica) del motor de trivia, dificultad media.
-function pickOptionsQuestion(soloCuatro: boolean): { prompt: string; sub?: string; options: string[]; answer: number } {
+// `desde`: si se indica, restringe el pool de Mundiales a year >= desde.
+function pickOptionsQuestion(
+  soloCuatro: boolean,
+  desde = 0,
+): { prompt: string; sub?: string; options: string[]; answer: number; hint?: string } {
   const rng = createRng((Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0);
+  const pool = desde ? TOURNAMENTS.filter((t) => t.year >= desde) : TOURNAMENTS;
+  const tournaments = pool.length ? pool : TOURNAMENTS;
   for (let i = 0; i < 25; i++) {
-    const q = generateQuestion({ tournaments: TOURNAMENTS, targetDifficulty: 2, tournamentFilter: "all", seenIds: [], rng });
+    const q = generateQuestion({ tournaments, targetDifficulty: 2, tournamentFilter: "all", seenIds: [], rng });
     if (q.format !== "number" && q.options && (!soloCuatro || q.options.length === 4) && q.answerIndex != null) {
       return {
         prompt: q.prompt,
         sub: q.tournamentYear ? `Mundial ${q.tournamentYear}` : undefined,
         options: q.options,
         answer: q.answerIndex,
+        hint: q.explanation || undefined,
       };
     }
   }

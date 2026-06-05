@@ -33,8 +33,13 @@ export function hayFotos(): boolean {
 }
 
 // Genera una ronda completa (o null si todavía no hay fotos descargadas).
-export function generarRondaQ(): RondaQ | null {
-  const conF = conFoto();
+// `desde` (opcional): solo jugadores que participaron en un Mundial >= ese año.
+export function generarRondaQ(desde = 0): RondaQ | null {
+  let conF = conFoto();
+  if (desde) {
+    const filtrados = conF.filter((p) => p.mundiales.some((y) => y >= desde));
+    if (filtrados.length) conF = filtrados; // si el filtro deja vacío, ignóralo
+  }
   if (!conF.length) return null;
   const player = conF[Math.floor(Math.random() * conF.length)];
   // Distractores solo de jugadores con foto: nombres coherentes con lo que se ve en el juego.

@@ -1,5 +1,6 @@
 "use client";
 import { motion } from "framer-motion";
+import { Check, X, Zap } from "lucide-react";
 
 function Dots({ shots, total, label }: { shots: boolean[]; total: number; label: string }) {
   return (
@@ -23,7 +24,7 @@ function Dots({ shots, total, label }: { shots: boolean[]; total: number; label:
                       : "var(--color-red)",
               }}
             >
-              {shot === undefined ? "" : shot ? "⚽" : "✕"}
+              {shot === undefined ? "" : shot ? <Check className="h-4 w-4" strokeWidth={3} /> : <X className="h-4 w-4" strokeWidth={3} />}
             </motion.span>
           );
         })}
@@ -51,9 +52,9 @@ export function Marcador({
         <motion.p
           animate={{ opacity: [0.6, 1, 0.6] }}
           transition={{ repeat: Infinity, duration: 1.2 }}
-          className="text-center text-xs font-black uppercase tracking-widest text-[var(--color-red)]"
+          className="flex items-center justify-center gap-1 text-center text-xs font-black uppercase tracking-widest text-[var(--color-red)]"
         >
-          ⚡ Muerte súbita
+          <Zap className="h-3.5 w-3.5" /> Muerte súbita
         </motion.p>
       )}
       <Dots shots={playerShots} total={total} label="Tú" />

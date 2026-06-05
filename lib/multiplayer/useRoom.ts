@@ -8,13 +8,20 @@ export interface Jugador {
   nombre: string;
   color: string;
   joinedAt: number;
+  host?: boolean; // marcado en presencia por quien dirige la partida
 }
 
 type Handler = (type: string, payload: Record<string, unknown>) => void;
 
 // Conecta a una sala de Supabase Realtime: presencia (jugadores en vivo) + broadcast
 // de eventos (selección de juego, empezar, etc.). El anfitrión es quien entró primero.
-export function useRoom(codigo: string, perfil: { nombre: string; color: string }) {
+// `extra.host` se publica en presencia para que todos sepan quién dirige (y detecten si sale).
+export function useRoom(
+  codigo: string,
+  perfil: { nombre: string; color: string },
+  extra?: { host?: boolean },
+) {
+  const hostFlag = !!extra?.host;
   const [players, setPlayers] = useState<Jugador[]>([]);
   const [ready, setReady] = useState(false);
   const chanRef = useRef<RealtimeChannel | null>(null);
@@ -45,6 +52,7 @@ export function useRoom(codigo: string, perfil: { nombre: string; color: string 
           nombre: String(m.nombre),
           color: String(m.color),
           joinedAt: Number(m.joinedAt),
+          host: Boolean(m.host),
         }));
       list.sort((a, b) => a.joinedAt - b.joinedAt || a.id.localeCompare(b.id));
       setPlayers(list);
@@ -57,7 +65,7 @@ export function useRoom(codigo: string, perfil: { nombre: string; color: string 
 
     channel.subscribe(async (status) => {
       if (status === "SUBSCRIBED") {
-        await channel.track({ id, nombre: perfil.nombre || "Jugador", color: perfil.color, joinedAt });
+        await channel.track({ id, nombre: perfil.nombre || "Jugador", color: perfil.color, joinedAt, host: hostFlag });
         setReady(true);
       }
     });
@@ -67,7 +75,7 @@ export function useRoom(codigo: string, perfil: { nombre: string; color: string 
       client.removeChannel(channel); // libera el topic para la siguiente página
       chanRef.current = null;
     };
-  }, [codigo, perfil.nombre, perfil.color, myId]);
+  }, [codigo, perfil.nombre, perfil.color, myId, hostFlag]);
 
   const send = useCallback((type: string, data: Record<string, unknown> = {}) => {
     chanRef.current?.send({ type: "broadcast", event: "evt", payload: { type, ...data } });
