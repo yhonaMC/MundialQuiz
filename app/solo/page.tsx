@@ -93,6 +93,25 @@ function QuienEsMini() {
   );
 }
 
+function RejillaMini() {
+  // 3×3: dos casillas resueltas con foto, el resto pendientes.
+  const conFotoCeldas = new Map<number, string | undefined>([
+    [1, FOTOS[1]?.foto?.archivo],
+    [5, FOTOS[3]?.foto?.archivo],
+  ]);
+  return (
+    <div className="grid grid-cols-3 gap-1">
+      {Array.from({ length: 9 }).map((_, i) =>
+        conFotoCeldas.has(i) ? (
+          <Avatar key={i} src={conFotoCeldas.get(i)} className="h-9 w-9 rounded-md" ring />
+        ) : (
+          <span key={i} className="h-9 w-9 rounded-md bg-white/10 ring-1 ring-white/15" />
+        ),
+      )}
+    </div>
+  );
+}
+
 export default function SoloPage() {
   return (
     <main className="relative flex flex-1 flex-col items-center px-4 py-10">
@@ -121,6 +140,7 @@ export default function SoloPage() {
         <GameCard href="/incognita" accent="var(--color-amber)" title={<>La Incógnita<br />Mundialera</>} subtitle="Adivina el jugador o la selección oculta en 6 intentos. ¡Una distinta cada vez!" visual={<MiniTiles />} />
         <GameCard href="/conexion" accent="var(--color-red)" title={<>La Conexión<br />Mundialera</>} subtitle="6 jugadores, 3 comparten algo. Descubre la conexión y selecciónalos." visual={<ConexionMini />} />
         <GameCard href="/quien-es" accent="var(--color-green)" title="¿Quién es?" subtitle="Adivina el jugador por su foto entre varias opciones. Suma puntos y rachas." visual={<QuienEsMini />} />
+        <GameCard href="/rejilla" badge="Difícil" accent="var(--color-cyan)" title={<>Rejilla<br />Mundialera</>} subtitle="Rellena la grilla 3×3: un jugador que cumpla el cruce de cada fila y columna." visual={<RejillaMini />} />
       </motion.div>
 
       <AdBanner className="mt-10 w-full max-w-2xl" />

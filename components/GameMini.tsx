@@ -77,6 +77,22 @@ export function GameMini({ game, small }: { game: string; small?: boolean }) {
     );
   }
 
+  if (game === "rejilla") {
+    const cell = small ? "h-5 w-5" : "h-7 w-7";
+    const llenas = new Set([1, 4, 6]);
+    return (
+      <div className="grid grid-cols-3 gap-1">
+        {Array.from({ length: 9 }).map((_, i) => (
+          <span
+            key={i}
+            className={`rounded ${cell}`}
+            style={{ backgroundColor: llenas.has(i) ? "var(--color-cyan)" : "rgba(255,255,255,0.15)" }}
+          />
+        ))}
+      </div>
+    );
+  }
+
   // quien-es
   const s = small ? "h-10 w-10" : "h-12 w-12";
   return (

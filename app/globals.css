@@ -9,6 +9,7 @@
   --color-gray-light: #d1d4d1; /* texto atenuado, etiquetas secundarias */
   --color-gray-dark: #474a4a; /* bordes glass, superficies inertes */
   --color-amber: #e3a008; /* SOLO juego La Incógnita: "letra presente, mal lugar" */
+  --color-cyan: #25c4d6; /* acento del juego Rejilla Mundialera */
   --font-sans: var(--font-poppins), system-ui, sans-serif;
 }
 

@@ -11,6 +11,7 @@ export const GAMES: Record<string, GameInfo> = {
   conexion: { nombre: "La Conexión Mundialera", solo: "/conexion", accent: "var(--color-red)" },
   "quien-es": { nombre: "¿Quién es?", solo: "/quien-es", accent: "var(--color-green)" },
   penales: { nombre: "Penales Quiz", solo: "/penales", accent: "var(--color-red)" },
+  rejilla: { nombre: "Rejilla Mundialera", solo: "/rejilla", accent: "var(--color-cyan)" },
 };
 
 export function getGame(key: string | undefined): GameInfo | undefined {

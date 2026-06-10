@@ -51,7 +51,9 @@ export default function SalaPage() {
       if (type === "start" && typeof payload.game === "string") {
         startingRef.current = true; // evita cerrar la sala por la salida de presencia al navegar
         sfx.whistle();
-        router.push(`/sala/${codigo}/jugar?game=${payload.game}&desde=${Number(payload.desde) || 0}${isHost ? "&host=1" : ""}`);
+        // La Rejilla no usa el motor por rondas: tiene su propia pantalla multijugador.
+        const ruta = payload.game === "rejilla" ? "rejilla" : "jugar";
+        router.push(`/sala/${codigo}/${ruta}?game=${payload.game}&desde=${Number(payload.desde) || 0}${isHost ? "&host=1" : ""}`);
       }
     });
   }, [onEvent, router, codigo, isHost]);

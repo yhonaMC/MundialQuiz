@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  loadData, saveData, recordGame, addSeenIds, defaultSaveData, recordPenales, type StorageLike,
+  loadData, saveData, recordGame, addSeenIds, defaultSaveData, recordPenales,
+  recordRejilla, recordRejillaDiario, defaultRejillaStats, type RejillaDiario, type StorageLike,
 } from '@/lib/storage/localStore';
 
 function fakeStorage(): StorageLike {
@@ -72,5 +73,55 @@ describe('localStore', () => {
     const data = loadData(s);
     expect(data.penales).toEqual({});
     expect(data.totalPoints).toBe(10);
+  });
+
+  it('old saved data without rejilla loads with defaults', () => {
+    const s = fakeStorage();
+    s.setItem('mundialquiz:v1', JSON.stringify({ totalPoints: 10 }));
+    expect(loadData(s).rejilla).toEqual(defaultRejillaStats());
+  });
+
+  it('recordRejilla keeps best score, best fill and counts games', () => {
+    const s = fakeStorage();
+    recordRejilla(300, 7, s);
+    recordRejilla(180, 9, s);
+    const r = loadData(s).rejilla;
+    expect(r.mejorPuntaje).toBe(300); // se queda el mayor
+    expect(r.mejorLlenado).toBe(9); // se queda el mayor llenado
+    expect(r.partidasJugadas).toBe(2);
+  });
+
+  const diario = (fecha: string, puntos = 100): RejillaDiario => ({
+    fecha,
+    puntos,
+    respuestas: Array.from({ length: 9 }, () => null),
+  });
+
+  it('recordRejillaDiario saves today board and counts a daily streak', () => {
+    const s = fakeStorage();
+    recordRejillaDiario(diario('2026-06-09'), 9, s);
+    recordRejillaDiario(diario('2026-06-10'), 8, s);
+    recordRejillaDiario(diario('2026-06-11'), 7, s);
+    const r = loadData(s).rejilla;
+    expect(r.rachaDiaria).toBe(3);
+    expect(r.ultimoDiaJugado).toBe('2026-06-11');
+    expect(r.diario?.fecha).toBe('2026-06-11');
+    expect(r.partidasJugadas).toBe(3);
+  });
+
+  it('a gap in days resets the daily streak', () => {
+    const s = fakeStorage();
+    recordRejillaDiario(diario('2026-06-09'), 9, s);
+    recordRejillaDiario(diario('2026-06-12'), 9, s); // hueco de 3 días
+    expect(loadData(s).rejilla.rachaDiaria).toBe(1);
+  });
+
+  it('re-saving the same day is idempotent (no double count)', () => {
+    const s = fakeStorage();
+    recordRejillaDiario(diario('2026-06-09', 100), 9, s);
+    recordRejillaDiario(diario('2026-06-09', 100), 9, s);
+    const r = loadData(s).rejilla;
+    expect(r.partidasJugadas).toBe(1);
+    expect(r.rachaDiaria).toBe(1);
   });
 });

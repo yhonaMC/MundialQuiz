@@ -46,7 +46,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 })(window,document,'script','dataLayer','${GTM_ID}');`}
         </Script>
       </head>
-      <body className="min-h-full flex flex-col">
+      {/* suppressHydrationWarning: extensiones del navegador (p.ej. ColorZilla con
+          cz-shortcut-listen) inyectan atributos en <body> antes de hidratar. */}
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
         {/* Google Tag Manager (noscript) */}
         <noscript>
           <iframe
