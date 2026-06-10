@@ -7,17 +7,43 @@ export interface RondaQ {
   correcta: number; // índice de la opción correcta
 }
 
-// Construye 4 opciones: el nombre correcto + 3 distractores (preferentemente de la
-// misma posición, para que sea reto). Recibe el pool de donde sacar distractores.
+// ¿Comparten época? (mismo Mundial o nacimiento cercano). Sirve para que los
+// distractores sean de la misma generación y no se descarten por edad evidente.
+function mismaEpoca(a: Player, b: Player): boolean {
+  if (a.mundiales.some((y) => b.mundiales.includes(y))) return true;
+  return a.nacimiento != null && b.nacimiento != null && Math.abs(a.nacimiento - b.nacimiento) <= 6;
+}
+
+// Cuanto menor el rango, más confundible es el distractor con el jugador de la
+// foto. Mismo país (misma camiseta) pesa más: obliga a reconocer la cara y no
+// adivinar por la selección. Luego misma posición y misma época.
+function rangoDistractor(player: Player, p: Player): number {
+  const pais = p.paisEs === player.paisEs;
+  const pos = p.posicion === player.posicion;
+  const epoca = mismaEpoca(player, p);
+  if (pais && pos) return 0;
+  if (pais && epoca) return 1;
+  if (pais) return 2;
+  if (pos && epoca) return 3;
+  if (pos) return 4;
+  return 5;
+}
+
+// Construye 4 opciones: el nombre correcto + 3 distractores lo más parecidos
+// posible (mismo país + posición + época) para que la pregunta sea difícil.
+// Recibe el pool de donde sacar distractores.
 export function construirOpciones(
   player: Player,
   pool: readonly Player[],
 ): { opciones: string[]; correcta: number } {
   const used = new Set([player.nombre]);
   const distract: string[] = [];
-  const samePos = shuffle(pool.filter((p) => p.posicion === player.posicion));
-  const rest = shuffle(pool);
-  for (const p of [...samePos, ...rest]) {
+  // shuffle primero (orden aleatorio entre empates) y sort estable por rango:
+  // se eligen los candidatos más confundibles, pero variando entre partidas.
+  const candidatos = shuffle(pool.filter((p) => p.nombre !== player.nombre)).sort(
+    (a, b) => rangoDistractor(player, a) - rangoDistractor(player, b),
+  );
+  for (const p of candidatos) {
     if (distract.length >= 3) break;
     if (!used.has(p.nombre)) {
       used.add(p.nombre);

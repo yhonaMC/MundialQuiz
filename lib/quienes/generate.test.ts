@@ -3,11 +3,11 @@ import { construirOpciones, generarRondaQ } from "@/lib/quienes/generate";
 import { conFoto } from "@/lib/db/queries";
 import type { Player } from "@/lib/db/types";
 
-const mk = (nombre: string, posicion: Player["posicion"]): Player => ({
+const mk = (nombre: string, posicion: Player["posicion"], paisEs = "Brasil"): Player => ({
   id: nombre,
   nombre,
   apellido: nombre.toUpperCase(),
-  paisEs: "Brasil",
+  paisEs,
   confederacion: "CONMEBOL",
   posicion,
   mundiales: [2018],
@@ -38,6 +38,27 @@ describe("construirOpciones", () => {
     for (let i = 0; i < 20; i++) {
       const { opciones, correcta } = construirOpciones(player, pool);
       expect(opciones[correcta]).toBe(player.nombre);
+    }
+  });
+
+  it("prefiere distractores del mismo país cuando hay suficientes (más difícil)", () => {
+    const argentino = mk("Lionel Messi", "Delantero", "Argentina");
+    const poolMixto = [
+      argentino,
+      mk("Ángel Di María", "Delantero", "Argentina"),
+      mk("Sergio Agüero", "Delantero", "Argentina"),
+      mk("Gabriel Batistuta", "Delantero", "Argentina"),
+      // Distractores fáciles (otra selección): no deberían elegirse si hay del mismo país.
+      mk("Cristiano Ronaldo", "Delantero", "Portugal"),
+      mk("Kylian Mbappé", "Delantero", "Francia"),
+      mk("Harry Kane", "Delantero", "Inglaterra"),
+    ];
+    for (let i = 0; i < 20; i++) {
+      const { opciones } = construirOpciones(argentino, poolMixto);
+      const distractores = opciones.filter((n) => n !== argentino.nombre);
+      // Los 3 distractores deben ser argentinos (mismo país), no de otra selección.
+      const argentinos = new Set(["Ángel Di María", "Sergio Agüero", "Gabriel Batistuta"]);
+      for (const d of distractores) expect(argentinos.has(d)).toBe(true);
     }
   });
 });

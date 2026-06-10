@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowLeft, Copy, Crown, Play, Wifi, WifiOff } from "lucide-react";
 import { MemphisBackground } from "@/components/ui/MemphisBackground";
@@ -9,7 +9,7 @@ import { JerseyAvatar } from "@/components/ui/JerseyAvatar";
 import { EventToasts, useEventToasts } from "@/components/ui/EventToasts";
 import { GameTile } from "@/components/GameTile";
 import { GAMES } from "@/lib/games";
-import { AVATAR_COLORS, loadPerfil } from "@/lib/perfil";
+import { AVATAR_COLORS, ensurePerfil } from "@/lib/perfil";
 import { realtimeDisponible } from "@/lib/supabase";
 import { sfx } from "@/lib/sound";
 import { useRoom } from "@/lib/multiplayer/useRoom";
@@ -23,6 +23,11 @@ export default function SalaPage() {
   const params = useParams<{ codigo: string }>();
   const codigo = (params.codigo || "").toUpperCase();
   const router = useRouter();
+  const search = useSearchParams();
+  // El anfitrión es quien creó la sala (?host=1), señal estable que sobrevive a
+  // volver del partido al lobby. No se deduce del orden de presencia, que cambia
+  // en cada reconexión y reasignaría el anfitrión al azar.
+  const isHost = search.get("host") === "1";
 
   const [perfil, setPerfil] = useState({ nombre: "Tú", color: AVATAR_COLORS[0] });
   const [seleccion, setSeleccion] = useState(GAME_ENTRIES[0][0]);
@@ -30,12 +35,12 @@ export default function SalaPage() {
   const { toasts, push } = useEventToasts();
 
   useEffect(() => {
-    const p = loadPerfil();
+    const p = ensurePerfil();
     // eslint-disable-next-line react-hooks/set-state-in-effect -- init solo-cliente intencional
-    setPerfil({ nombre: p.nombre || "Tú", color: p.color });
+    setPerfil({ nombre: p.nombre, color: p.color });
   }, []);
 
-  const { players, isHost, myId, ready, send, onEvent } = useRoom(codigo, perfil);
+  const { players, myId, ready, send, onEvent } = useRoom(codigo, perfil, { host: isHost });
 
   // Eventos de la sala: selección de juego, filtro de año y empezar (sincronizados).
   const startingRef = useRef(false);
@@ -61,7 +66,9 @@ export default function SalaPage() {
     if (closingRef.current) return;
     for (const p of players) namesRef.current[p.id] = p.nombre;
     const curIds = players.map((p) => p.id);
-    const hostId = players[0]?.id ?? null;
+    // El anfitrión real viene marcado en presencia (host=true). players[0] no
+    // sirve: al volver del partido el joinedAt se renueva y reordena la lista.
+    const hostId = players.find((p) => p.host)?.id ?? null;
     if (firstRef.current) {
       firstRef.current = false;
       prevIdsRef.current = curIds;
@@ -120,7 +127,7 @@ export default function SalaPage() {
   // Jugadores a mostrar (si aún no conecta, muéstrate a ti mismo).
   const lista = players.length
     ? players
-    : [{ id: "me", nombre: perfil.nombre, color: perfil.color, joinedAt: 0 }];
+    : [{ id: "me", nombre: perfil.nombre, color: perfil.color, joinedAt: 0, host: isHost }];
 
   return (
     <main className="relative flex flex-1 flex-col items-center gap-5 px-4 py-8">
@@ -155,7 +162,7 @@ export default function SalaPage() {
             <motion.div key={j.id} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.05 }} className="flex items-center gap-2 rounded-full bg-white/5 py-1.5 pl-1.5 pr-3 ring-1 ring-white/10">
               <JerseyAvatar nombre={j.nombre} size={34} ring={j.color} />
               <span className="text-sm font-extrabold">{j.nombre}</span>
-              {i === 0 && <Crown className="h-3.5 w-3.5 text-[var(--color-amber)]" />}
+              {j.host && <Crown className="h-3.5 w-3.5 text-[var(--color-amber)]" />}
             </motion.div>
           ))}
         </div>

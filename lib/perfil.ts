@@ -39,4 +39,20 @@ export function savePerfil(p: Perfil): void {
   }
 }
 
+// Apodo por defecto, único por dispositivo: evita que varios jugadores sin
+// nombre aparezcan todos como "Tú".
+export function generarNombre(): string {
+  return `Jugador ${Math.floor(1000 + Math.random() * 9000)}`;
+}
+
+// Devuelve el perfil garantizando un apodo no vacío y distinguible: si el
+// jugador nunca puso nombre, genera uno y lo persiste para que sea estable.
+export function ensurePerfil(): Perfil {
+  const p = loadPerfil();
+  if (p.nombre.trim()) return p;
+  const conNombre: Perfil = { nombre: generarNombre(), color: p.color };
+  savePerfil(conNombre);
+  return conNombre;
+}
+
 export const iniciales = (nombre: string) => (nombre.trim() || "Tú").slice(0, 2).toUpperCase();

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowLeft, Plus, LogIn } from "lucide-react";
 import { MemphisBackground } from "@/components/ui/MemphisBackground";
-import { AVATAR_COLORS, iniciales, loadPerfil, savePerfil } from "@/lib/perfil";
+import { AVATAR_COLORS, ensurePerfil, iniciales, savePerfil } from "@/lib/perfil";
 
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 function nuevoCodigo(): string {
@@ -22,7 +22,7 @@ export default function MultijugadorPage() {
 
   // Cargar perfil guardado (solo cliente).
   useEffect(() => {
-    const p = loadPerfil();
+    const p = ensurePerfil();
     // eslint-disable-next-line react-hooks/set-state-in-effect -- init solo-cliente intencional
     setNombre(p.nombre);
     setColor(p.color);

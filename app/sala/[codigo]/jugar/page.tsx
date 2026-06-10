@@ -14,7 +14,7 @@ import { PlayerCard, type Reveal } from "@/components/conexion/PlayerCard";
 import { Board, MAX_ATTEMPTS } from "@/components/incognita/Board";
 import { Keyboard } from "@/components/incognita/Keyboard";
 import { GAMES } from "@/lib/games";
-import { AVATAR_COLORS, loadPerfil } from "@/lib/perfil";
+import { AVATAR_COLORS, ensurePerfil } from "@/lib/perfil";
 import { sfx } from "@/lib/sound";
 import { useRoom, type Jugador } from "@/lib/multiplayer/useRoom";
 import { buildRound, penalesContinua, scoreFor, TOTAL_ROUNDS, type Round } from "@/lib/multiplayer/rounds";
@@ -40,9 +40,9 @@ export default function MatchPage() {
 
   const [perfil, setPerfil] = useState({ nombre: "Tú", color: AVATAR_COLORS[0] });
   useEffect(() => {
-    const p = loadPerfil();
+    const p = ensurePerfil();
     // eslint-disable-next-line react-hooks/set-state-in-effect -- init solo-cliente intencional
-    setPerfil({ nombre: p.nombre || "Tú", color: p.color });
+    setPerfil({ nombre: p.nombre, color: p.color });
   }, []);
 
   const { players, myId, ready, send, onEvent } = useRoom(codigo, perfil, { host: isHost });
