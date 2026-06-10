@@ -7,6 +7,7 @@ import { ArrowLeft, Plus, LogIn } from "lucide-react";
 import { MemphisBackground } from "@/components/ui/MemphisBackground";
 import { PerfilEditor } from "@/components/PerfilEditor";
 import { AVATAR_COLORS, ensurePerfil, savePerfil, type Perfil } from "@/lib/perfil";
+import { claimHost } from "@/lib/multiplayer/hostClaim";
 
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 function nuevoCodigo(): string {
@@ -32,7 +33,11 @@ export default function MultijugadorPage() {
   };
   const crear = () => {
     savePerfil(perfil);
-    router.push(`/sala/${nuevoCodigo()}?host=1`);
+    const codigo = nuevoCodigo();
+    // El rol de anfitrión se guarda en esta pestaña, no en la URL: compartir el
+    // link de la sala ya no puede regalar el rol a otro jugador.
+    claimHost(codigo);
+    router.push(`/sala/${codigo}`);
   };
   const unir = () => {
     const c = codigo.trim().toUpperCase();

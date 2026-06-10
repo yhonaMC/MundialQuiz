@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Copy, Crown, Pencil, Play, Users, Wifi, WifiOff, X } from "lucide-react";
 import { MemphisBackground } from "@/components/ui/MemphisBackground";
@@ -15,6 +15,7 @@ import { realtimeDisponible } from "@/lib/supabase";
 import { sfx } from "@/lib/sound";
 import { useRoom } from "@/lib/multiplayer/useRoom";
 import { MUNDIAL_DESDE } from "@/lib/multiplayer/rounds";
+import { claimHost, isClaimedHost, releaseHost } from "@/lib/multiplayer/hostClaim";
 
 const GAME_ENTRIES = Object.entries(GAMES);
 // El filtro de año solo afecta a juegos basados en datos por año.
@@ -24,11 +25,11 @@ export default function SalaPage() {
   const params = useParams<{ codigo: string }>();
   const codigo = (params.codigo || "").toUpperCase();
   const router = useRouter();
-  const search = useSearchParams();
-  // El anfitrión inicial es quien creó la sala (?host=1), señal estable que sobrevive a
-  // volver del partido al lobby. Si el anfitrión se va, el liderazgo pasa al jugador
-  // más antiguo de la sala (elección determinista: todos ven la misma lista ordenada).
-  const [isHost, setIsHost] = useState(() => search.get("host") === "1");
+  // El anfitrión es quien creó la sala. El reclamo vive en sessionStorage de SU pestaña
+  // (ver hostClaim.ts), nunca en la URL: compartir el link no regala el rol. Sobrevive a
+  // ir y volver del partido. Si el anfitrión se va, el liderazgo pasa al jugador más
+  // antiguo de la sala (elección determinista: todos ven la misma lista ordenada).
+  const [isHost, setIsHost] = useState(false);
 
   const [perfil, setPerfil] = useState<Perfil>({ nombre: "Tú", color: AVATAR_COLORS[0] });
   const [editando, setEditando] = useState(false);
@@ -39,7 +40,9 @@ export default function SalaPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- init solo-cliente intencional
     setPerfil(ensurePerfil());
-  }, []);
+     
+    setIsHost(isClaimedHost(codigo));
+  }, [codigo]);
 
   const actualizarPerfil = (p: Perfil) => {
     setPerfil(p);
@@ -58,11 +61,12 @@ export default function SalaPage() {
         startingRef.current = true; // evita reelección de anfitrión por la salida de presencia al navegar
         sfx.whistle();
         // La Rejilla no usa el motor por rondas: tiene su propia pantalla multijugador.
+        // El rol de anfitrión ya no viaja en la URL (ver hostClaim.ts).
         const ruta = payload.game === "rejilla" ? "rejilla" : "jugar";
-        router.push(`/sala/${codigo}/${ruta}?game=${payload.game}&desde=${Number(payload.desde) || 0}${isHost ? "&host=1" : ""}`);
+        router.push(`/sala/${codigo}/${ruta}?game=${payload.game}&desde=${Number(payload.desde) || 0}`);
       }
     });
-  }, [onEvent, router, codigo, isHost]);
+  }, [onEvent, router, codigo]);
 
   // Avisos de entrada/salida y traspaso de anfitrión si el actual se va.
   const firstRef = useRef(true);
@@ -74,7 +78,15 @@ export default function SalaPage() {
     const curIds = players.map((p) => p.id);
     // El anfitrión real viene marcado en presencia (host=true). players[0] no
     // sirve: al volver del partido el joinedAt se renueva y reordena la lista.
+    // Si hay más de uno marcado (p.ej. URLs viejas con ?host=1 compartidas, o una
+    // carrera al volver del partido), manda el más antiguo y el resto se demuele.
     const hostId = players.find((p) => p.host)?.id ?? null;
+    if (hostId && hostId !== myId && isHost && players.some((p) => p.id === myId && p.host)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- democión por conflicto de presencia
+      setIsHost(false);
+      releaseHost(codigo);
+      push(`${namesRef.current[hostId] ?? "Alguien"} es el anfitrión de la sala`, { icon: "👑", silent: true });
+    }
     if (firstRef.current) {
       firstRef.current = false;
       prevIdsRef.current = curIds;
@@ -96,8 +108,9 @@ export default function SalaPage() {
       const candidato = players[0];
       prevHostRef.current = candidato.id; // optimista: evita reelegir en syncs intermedios
       if (candidato.id === myId) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- promoción por evento externo (presencia)
+         
         setIsHost(true);
+        claimHost(codigo); // conserva el rol al ir y volver del partido
         sfx.join();
         push("👑 Ahora eres el anfitrión", { icon: "👑" });
       } else {
@@ -107,7 +120,7 @@ export default function SalaPage() {
       prevHostRef.current = hostId;
     }
     prevIdsRef.current = curIds;
-  }, [players, myId, push]);
+  }, [players, myId, push, isHost, codigo]);
 
   const copiarLink = async () => {
     try {

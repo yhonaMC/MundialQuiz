@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { Check, Crown, Hand, Lightbulb, Trophy, X, Zap } from "lucide-react";
+import { Check, Crown, Hand, Lightbulb, RotateCcw, Trophy, X, Zap } from "lucide-react";
 import { MemphisBackground } from "@/components/ui/MemphisBackground";
 import { Confetti } from "@/components/ui/Confetti";
 import { JerseyAvatar } from "@/components/ui/JerseyAvatar";
@@ -18,6 +18,7 @@ import { AVATAR_COLORS, ensurePerfil, type Perfil } from "@/lib/perfil";
 import { sfx } from "@/lib/sound";
 import { useRoom, type Jugador } from "@/lib/multiplayer/useRoom";
 import { buildRound, penalesContinua, scoreFor, TOTAL_ROUNDS, type Round } from "@/lib/multiplayer/rounds";
+import { claimHost, isClaimedHost, releaseHost } from "@/lib/multiplayer/hostClaim";
 import { normalize } from "@/lib/incognita/normalize";
 import { isValidGuess } from "@/lib/incognita/dictionary";
 import { keyboardState } from "@/lib/incognita/keyboardState";
@@ -36,14 +37,17 @@ export default function MatchPage() {
   const codigo = (params.codigo || "").toUpperCase();
   const game = search.get("game") ?? "quiz";
   const desde = Number(search.get("desde")) || 0;
-  // Anfitrión inicial por URL; puede cambiar a mitad de partida si el actual se va.
-  const [isHost, setIsHost] = useState(() => search.get("host") === "1");
+  // Anfitrión por reclamo en sessionStorage (ver hostClaim.ts), nunca por URL.
+  // Puede cambiar a mitad de partida si el actual se va.
+  const [isHost, setIsHost] = useState(false);
 
   const [perfil, setPerfil] = useState<Perfil>({ nombre: "Tú", color: AVATAR_COLORS[0] });
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- init solo-cliente intencional
     setPerfil(ensurePerfil());
-  }, []);
+     
+    setIsHost(isClaimedHost(codigo));
+  }, [codigo]);
 
   const { players, myId, ready, send, onEvent } = useRoom(codigo, perfil, { host: isHost });
   const { toasts, push } = useEventToasts();
@@ -196,9 +200,34 @@ export default function MatchPage() {
         phaseRef.current = "end";
         setPhase("end");
         setScores((p.scores as Record<string, number>) || {});
+      } else if (type === "again") {
+        // Revancha: misma sala y juego, marcador a cero. El anfitrión relanza la ronda 1.
+        if (roundTimer.current) clearTimeout(roundTimer.current);
+        if (revealTimer.current) clearTimeout(revealTimer.current);
+        phaseRef.current = "play";
+        roundIdxRef.current = -1;
+        lastRevealRef.current = -1;
+        hostScoresRef.current = {};
+        shotsRef.current = {};
+        resultsRef.current = {};
+        progRef.current = {};
+        answeredRef.current = new Set();
+        endPlayedRef.current = false;
+        setScores({});
+        setShots({});
+        setResults({});
+        setProg({});
+        setAnswered([]);
+        setRound(null);
+        setRoundIdx(-1);
+        setMyDone(false);
+        setPhase("play");
+        sfx.whistle();
+        fire("¡Revancha!", { variant: "start", ms: 1400 });
+        if (isHost) setTimeout(() => startRound(0), 900);
       }
     });
-  }, [onEvent, isHost, hostReveal, myId, nameOf, push, fire]);
+  }, [onEvent, isHost, hostReveal, myId, nameOf, push, fire, startRound]);
 
   // El anfitrión arranca la primera ronda cuando el canal está listo
   // (con un margen para que el resto se suscriba y no se pierda la ronda 1).
@@ -256,6 +285,16 @@ export default function MatchPage() {
   useEffect(() => {
     const curIds = players.map((p) => p.id);
     const hostPresent = players.some((p) => p.host);
+    // Dos anfitriones marcados (reclamos duplicados): manda el más antiguo, el otro
+    // se demuele y suelta sus timers para no duplicar rondas.
+    const canonico = players.find((p) => p.host);
+    if (isHost && canonico && canonico.id !== myId && players.some((p) => p.id === myId && p.host)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- democión por conflicto de presencia
+      setIsHost(false);
+      releaseHost(codigo);
+      if (roundTimer.current) clearTimeout(roundTimer.current);
+      if (revealTimer.current) clearTimeout(revealTimer.current);
+    }
     if (firstPresenceRef.current) {
       firstPresenceRef.current = false;
       prevIdsRef.current = curIds;
@@ -278,8 +317,9 @@ export default function MatchPage() {
       hostWasPresentRef.current = false; // hasta que el nuevo anfitrión aparezca marcado
       const candidato = players[0];
       if (candidato.id === myId && !isHost) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- promoción por evento externo (presencia)
+         
         setIsHost(true);
+        claimHost(codigo); // conserva el rol al volver a la sala
         push("👑 Ahora eres el anfitrión", { icon: "👑" });
         if (roundIdxRef.current < 0) {
           // El anfitrión se fue antes de arrancar: arranca tú.
@@ -297,7 +337,7 @@ export default function MatchPage() {
     }
     if (hostPresent) hostWasPresentRef.current = true;
     prevIdsRef.current = curIds;
-  }, [players, myId, isHost, push, nameOf, startRound, hostReveal, scheduleNext]);
+  }, [players, myId, isHost, codigo, push, nameOf, startRound, hostReveal, scheduleNext]);
 
   // Registrar respuesta del jugador. Devuelve los puntos para feedback inmediato.
   const responder = useCallback<Result>(
@@ -339,28 +379,61 @@ export default function MatchPage() {
         <h1 className="text-3xl font-black uppercase italic">Resultados</h1>
         <div className="flex w-full max-w-sm flex-col gap-2">
           {ranking.map((p, i) => (
-            <div
+            <motion.div
               key={p.id}
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.12, type: "spring", stiffness: 260, damping: 18 }}
               className="flex items-center gap-3 rounded-2xl px-4 py-2.5 ring-1 ring-white/10"
               style={{ backgroundColor: i === 0 ? "color-mix(in srgb, var(--color-green) 25%, transparent)" : "rgba(255,255,255,0.05)" }}
             >
               <span className="w-5 text-center font-black">{i + 1}</span>
-              <JerseyAvatar nombre={p.nombre} jersey={p.jersey} size={34} ring={p.color} />
-              <span className="font-extrabold">{p.nombre}</span>
+              <JerseyAvatar nombre={p.nombre} jersey={p.jersey} size={i === 0 ? 42 : 34} ring={p.color} />
+              <span className={i === 0 ? "text-lg font-black" : "font-extrabold"}>{p.nombre}</span>
               {i === 0 && <Crown className="h-4 w-4 text-[var(--color-amber)]" />}
               <span className="ml-auto font-black tabular-nums text-[var(--color-green)]">
                 {p.pts}
                 {game === "penales" && <Check className="ml-1 inline h-3.5 w-3.5" />}
               </span>
-            </div>
+            </motion.div>
           ))}
         </div>
-        <Link href={`/sala/${codigo}${isHost ? "?host=1" : ""}`} className="mt-2 rounded-2xl bg-[var(--color-green)] px-7 py-3 font-black uppercase italic text-[var(--color-navy-deep)] shadow-[0_6px_0_0_#2c8a2b]">
-          Volver a la sala
-        </Link>
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
+          {isHost && (
+            <motion.button
+              onClick={() => send("again")}
+              whileHover={{ scale: 1.04, y: -2 }}
+              whileTap={{ scale: 0.95 }}
+              className="flex items-center gap-2 rounded-2xl bg-[var(--color-green)] px-7 py-3 font-black uppercase italic text-[var(--color-navy-deep)] shadow-[0_6px_0_0_#2c8a2b]"
+            >
+              <RotateCcw className="h-5 w-5" /> Revancha
+            </motion.button>
+          )}
+          <Link
+            href={`/sala/${codigo}`}
+            className="rounded-2xl bg-white/10 px-7 py-3 font-black uppercase italic text-white ring-1 ring-white/15 hover:bg-white/15"
+          >
+            Volver a la sala
+          </Link>
+        </div>
+        {!isHost && (
+          <p className="text-xs font-bold text-[var(--color-gray-light)]/60">El anfitrión puede lanzar una revancha al instante</p>
+        )}
       </main>
     );
   }
+
+  // Estado visible de cada jugador en el marcador en vivo.
+  const estadoDe = (id: string): { texto: string; color: string } => {
+    if (phase === "reveal") {
+      if (results[id] === true) return { texto: "✓ acertó", color: "var(--color-green)" };
+      if (results[id] === false) return { texto: "✗ falló", color: "var(--color-red)" };
+      return { texto: "sin responder", color: "var(--color-gray-light)" };
+    }
+    if (answered.includes(id)) return { texto: "listo ✅", color: "var(--color-green)" };
+    if (prog[id]) return { texto: `✏️ intento ${prog[id]}`, color: "var(--color-amber)" };
+    return { texto: "pensando…", color: "var(--color-gray-light)" };
+  };
 
   return (
     <main className="relative flex flex-1 flex-col items-center gap-3 px-4 py-6">
@@ -369,8 +442,8 @@ export default function MatchPage() {
       <Announce data={announce} />
 
       {/* Cabecera */}
-      <div className="flex w-full max-w-xl items-center justify-between gap-2">
-        <Link href={`/sala/${codigo}${isHost ? "?host=1" : ""}`} className="text-xs font-bold text-[var(--color-gray-light)]/70 hover:text-white">
+      <div className="flex w-full max-w-5xl items-center justify-between gap-2">
+        <Link href={`/sala/${codigo}`} className="text-xs font-bold text-[var(--color-gray-light)]/70 hover:text-white">
           Salir
         </Link>
         <span className="text-xs font-bold uppercase tracking-widest text-[var(--color-gray-light)]/60">
@@ -381,76 +454,105 @@ export default function MatchPage() {
         </span>
       </div>
 
-      {/* Temporizador */}
-      {round && phase === "play" && (
-        <div className="w-full max-w-xl">
+      {/* Temporizador: animación fluida vía transición CSS; en el reveal no desaparece,
+          se congela en gris hasta la siguiente ronda. */}
+      {round && (
+        <div className="w-full max-w-5xl">
           <div className="mb-1 flex items-center justify-between text-[11px] font-bold uppercase tracking-widest text-[var(--color-gray-light)]/60">
             <span>Tiempo</span>
-            <span className="tabular-nums" style={{ color: barColor }}>{secs}s</span>
+            <span className="tabular-nums" style={{ color: phase === "play" ? barColor : "rgba(255,255,255,0.4)" }}>
+              {phase === "play" ? `${secs}s` : "—"}
+            </span>
           </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
-            <motion.div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: barColor }} transition={{ ease: "linear" }} />
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${pct}%`,
+                backgroundColor: phase === "play" ? barColor : "rgba(255,255,255,0.28)",
+                transition: "width 220ms linear, background-color 400ms ease",
+              }}
+            />
           </div>
         </div>
       )}
 
-      {/* Marcador en vivo con estado de cada jugador */}
-      <div className="flex w-full max-w-xl flex-wrap justify-center gap-2">
-        {ranking.map((p) => {
-          const yaRespondio = answered.includes(p.id);
-          let estado = "";
-          let estadoColor = "var(--color-gray-light)";
-          if (phase === "reveal") {
-            if (results[p.id] === true) { estado = "✓ acertó"; estadoColor = "var(--color-green)"; }
-            else if (results[p.id] === false) { estado = "✗ falló"; estadoColor = "var(--color-red)"; }
-            else { estado = "sin responder"; }
-          } else if (yaRespondio) {
-            estado = "listo ✅"; estadoColor = "var(--color-green)";
-          } else if (prog[p.id]) {
-            estado = `✏️ intento ${prog[p.id]}`; estadoColor = "var(--color-amber)";
-          } else {
-            estado = "pensando…";
-          }
-          return (
-            <span key={p.id} className="flex items-center gap-2 rounded-2xl bg-white/5 py-1 pl-1 pr-3 ring-1 ring-white/10">
-              <JerseyAvatar nombre={p.nombre} jersey={p.jersey} size={30} ring={p.color} dim={phase === "play" && !yaRespondio} />
-              <span className="flex flex-col leading-tight">
-                <span className="flex items-center gap-1 text-[11px] font-black">
-                  {p.id === myId ? "Tú" : p.nombre.length > 8 ? p.nombre.slice(0, 8) + "…" : p.nombre}
-                  <span className="tabular-nums text-[var(--color-green)]">{p.pts}</span>
-                  {p.host && <Crown className="h-3 w-3 text-[var(--color-amber)]" />}
+      {/* Marcador lateral en desktop, chips compactos en móvil */}
+      <div className="grid w-full max-w-5xl flex-1 gap-4 lg:grid-cols-[250px_1fr] lg:items-start">
+        <div className="hidden flex-col gap-1.5 rounded-3xl bg-[var(--color-navy)] p-4 ring-1 ring-white/10 lg:flex">
+          <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[var(--color-gray-light)]/60">Marcador</p>
+          {ranking.map((p) => {
+            const e = estadoDe(p.id);
+            return (
+              <div key={p.id} className="flex items-center gap-2.5 rounded-2xl bg-white/5 px-2.5 py-2 ring-1 ring-white/10">
+                <JerseyAvatar nombre={p.nombre} jersey={p.jersey} size={38} ring={p.color} dim={phase === "play" && !answered.includes(p.id)} />
+                <span className="flex min-w-0 flex-col leading-tight">
+                  <span className="flex items-center gap-1.5 truncate text-sm font-black">
+                    {p.id === myId ? "Tú" : p.nombre}
+                    {p.host && <Crown className="h-3 w-3 shrink-0 text-[var(--color-amber)]" />}
+                  </span>
+                  <span className="text-[11px] font-bold" style={{ color: e.color }}>{e.texto}</span>
                 </span>
-                <span className="text-[10px] font-bold" style={{ color: estadoColor }}>{estado}</span>
-              </span>
-            </span>
-          );
-        })}
-      </div>
-
-      {!round ? (
-        <div className="mt-10">
-          <Loader label="Conectando" />
+                <span className="ml-auto font-black tabular-nums text-[var(--color-green)]">{p.pts}</span>
+              </div>
+            );
+          })}
         </div>
-      ) : (
-        <RoundView key={roundIdx} round={round} phase={phase} myDone={myDone} onResult={responder} onProgress={sendProg} players={players} shots={shots} roundIdx={roundIdx} myId={myId} />
-      )}
 
-      {phase === "reveal" && (
-        <p className="text-sm font-bold text-[var(--color-gray-light)]/70">Siguiente ronda en unos segundos…</p>
-      )}
+        <div className="flex w-full flex-wrap justify-center gap-2 lg:hidden">
+          {ranking.map((p) => {
+            const e = estadoDe(p.id);
+            return (
+              <span key={p.id} className="flex items-center gap-2 rounded-2xl bg-white/5 py-1 pl-1 pr-3 ring-1 ring-white/10">
+                <JerseyAvatar nombre={p.nombre} jersey={p.jersey} size={30} ring={p.color} dim={phase === "play" && !answered.includes(p.id)} />
+                <span className="flex flex-col leading-tight">
+                  <span className="flex items-center gap-1 text-[11px] font-black">
+                    {p.id === myId ? "Tú" : p.nombre.length > 8 ? p.nombre.slice(0, 8) + "…" : p.nombre}
+                    <span className="tabular-nums text-[var(--color-green)]">{p.pts}</span>
+                    {p.host && <Crown className="h-3 w-3 text-[var(--color-amber)]" />}
+                  </span>
+                  <span className="text-[10px] font-bold" style={{ color: e.color }}>{e.texto}</span>
+                </span>
+              </span>
+            );
+          })}
+        </div>
+
+        <div className="flex flex-col items-center gap-3">
+          {!round ? (
+            <div className="mt-10">
+              <Loader label="Preparando partida" />
+            </div>
+          ) : (
+            <RoundView key={roundIdx} round={round} phase={phase} myDone={myDone} onResult={responder} onProgress={sendProg} players={players} shots={shots} roundIdx={roundIdx} myId={myId} />
+          )}
+
+          {phase === "reveal" && (
+            <p className="text-sm font-bold text-[var(--color-gray-light)]/70">Siguiente ronda en unos segundos…</p>
+          )}
+        </div>
+      </div>
     </main>
   );
 }
 
 // Botón de pista reutilizable (texto que no revela la respuesta; resta puntos).
-function PistaBtn({ hint, shown, onShow }: { hint?: string; shown: boolean; onShow: () => void }) {
+// Al responder no desaparece: queda en gris, así el layout no salta.
+function PistaBtn({ hint, shown, onShow, disabled }: { hint?: string; shown: boolean; onShow: () => void; disabled?: boolean }) {
   if (!hint) return null;
-  return shown ? (
-    <span className="flex items-center gap-1.5 rounded-full bg-[var(--color-amber)]/15 px-3 py-1 text-xs font-bold text-[var(--color-amber)]">
-      <Lightbulb className="h-3.5 w-3.5" /> {hint}
-    </span>
-  ) : (
-    <button onClick={onShow} className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-extrabold ring-1 ring-white/15 hover:bg-white/15">
+  if (shown) {
+    return (
+      <span className="flex items-center gap-1.5 rounded-full bg-[var(--color-amber)]/15 px-3 py-1 text-xs font-bold text-[var(--color-amber)]">
+        <Lightbulb className="h-3.5 w-3.5" /> {hint}
+      </span>
+    );
+  }
+  return (
+    <button
+      onClick={onShow}
+      disabled={disabled}
+      className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-extrabold ring-1 ring-white/15 transition enabled:hover:bg-white/15 disabled:cursor-default disabled:text-white/35 disabled:ring-white/10"
+    >
       <Lightbulb className="h-3.5 w-3.5" /> Pista (−50% pts)
     </button>
   );
@@ -528,7 +630,7 @@ function PenalesView({ round, phase, myDone, onResult, players, shots, roundIdx,
 
       {round.sub && <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black uppercase">{round.sub}</span>}
       <h2 className="text-center text-xl font-black leading-tight">{round.prompt}</h2>
-      {!show && !myDone && <PistaBtn hint={round.hint} shown={hint} onShow={() => setHint(true)} />}
+      <PistaBtn hint={round.hint} shown={hint} onShow={() => setHint(true)} disabled={myDone || show} />
       <div className="grid w-full gap-2.5">
         {round.options.map((op, i) => {
           let bg = "rgba(255,255,255,0.1)";
@@ -581,7 +683,7 @@ function OptionsView({ round, phase, myDone, onResult }: { round: Extract<Round,
         </div>
       )}
       {round.prompt && <h2 className="text-center text-xl font-black leading-tight">{round.prompt}</h2>}
-      {!show && !myDone && <PistaBtn hint={round.hint} shown={hint} onShow={() => setHint(true)} />}
+      <PistaBtn hint={round.hint} shown={hint} onShow={() => setHint(true)} disabled={myDone || show} />
       <div className="grid w-full gap-2.5">
         {round.options.map((op, i) => {
           let bg = "rgba(255,255,255,0.1)";
@@ -631,7 +733,7 @@ function ConexionView({ round, phase, myDone, onResult }: { round: Extract<Round
     <div className="relative flex w-full max-w-md flex-col items-center gap-3">
       {resultado === true && <Confetti pieces={36} />}
       <p className="text-center text-sm text-[var(--color-gray-light)]/80">Elige los <b className="text-white">3</b> que comparten algo</p>
-      {!show && !myDone && <PistaBtn hint={round.hint} shown={hint} onShow={() => setHint(true)} />}
+      <PistaBtn hint={round.hint} shown={hint} onShow={() => setHint(true)} disabled={myDone || show} />
       <div className="grid w-full grid-cols-3 gap-2.5">
         {round.cards.map((c) => (
           <PlayerCard key={c.id} player={{ id: c.id, nombre: c.nombre, paisEs: c.paisEs, posicion: c.posicion as Player["posicion"], foto: c.foto ? { archivo: c.foto, autor: "", licencia: "", fuente: "" } : undefined } as Player} selected={sel.has(c.id)} reveal={revealOf(c.id)} disabled={myDone || show} onToggle={() => toggle(c.id)} />
