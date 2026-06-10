@@ -1,22 +1,25 @@
-import { jerseyFor } from "@/lib/avatar";
+import { jerseyFor, type JerseyCustom } from "@/lib/avatar";
 
 // Camiseta de fútbol en SVG generada a partir del nombre (ver lib/avatar.ts).
+// `jersey` (opcional) aplica la customización elegida por el jugador (kit/patrón/dorsal).
 // `ring` (opcional) dibuja un aro con el color elegido por el jugador, para que su
 // identidad de color siga presente. `dim` baja la opacidad (p.ej. "aún no responde").
 export function JerseyAvatar({
   nombre,
+  jersey,
   size = 36,
   ring,
   dim = false,
   className = "",
 }: {
   nombre: string;
+  jersey?: JerseyCustom | null;
   size?: number;
   ring?: string;
   dim?: boolean;
   className?: string;
 }) {
-  const { primary, secondary, pattern, number } = jerseyFor(nombre);
+  const { primary, secondary, pattern, number } = jerseyFor(nombre, jersey);
   const id = (nombre || "j").replace(/[^a-z0-9]/gi, "") || "j";
   const clip = `clip-${id}-${number}`;
   // Silueta de camiseta con cuello en V y mangas (viewBox 0 0 48 48).

@@ -1,7 +1,10 @@
-// Perfil local del jugador para multijugador: apodo + color de avatar.
+// Perfil local del jugador para multijugador: apodo + color de avatar + camiseta.
+import { KITS, PATTERNS, type JerseyCustom, type JerseyPattern } from "@/lib/avatar";
+
 export interface Perfil {
   nombre: string;
   color: string;
+  jersey?: JerseyCustom; // customización de camiseta (opcional; si falta se deriva del nombre)
 }
 
 export const AVATAR_COLORS = [
@@ -17,13 +20,26 @@ export const AVATAR_COLORS = [
 
 const KEY = "juegamundial:perfil";
 
+// Valida la camiseta guardada (perfiles viejos no la traen; datos corruptos se descartan).
+function sanitizeJersey(j: unknown): JerseyCustom | undefined {
+  if (!j || typeof j !== "object") return undefined;
+  const o = j as Record<string, unknown>;
+  const out: JerseyCustom = {};
+  if (typeof o.kit === "number" && Number.isInteger(o.kit) && o.kit >= 0 && o.kit < KITS.length) out.kit = o.kit;
+  if (typeof o.pattern === "string" && PATTERNS.includes(o.pattern as JerseyPattern)) out.pattern = o.pattern as JerseyPattern;
+  if (typeof o.dorsal === "number" && Number.isInteger(o.dorsal) && o.dorsal >= 1 && o.dorsal <= 99) out.dorsal = o.dorsal;
+  return Object.keys(out).length ? out : undefined;
+}
+
 export function loadPerfil(): Perfil {
   if (typeof window === "undefined") return { nombre: "", color: AVATAR_COLORS[0] };
   try {
     const raw = window.localStorage.getItem(KEY);
     if (raw) {
       const p = JSON.parse(raw) as Perfil;
-      if (p && typeof p.nombre === "string" && typeof p.color === "string") return p;
+      if (p && typeof p.nombre === "string" && typeof p.color === "string") {
+        return { nombre: p.nombre, color: p.color, jersey: sanitizeJersey(p.jersey) };
+      }
     }
   } catch {
     /* ignore */
@@ -50,7 +66,7 @@ export function generarNombre(): string {
 export function ensurePerfil(): Perfil {
   const p = loadPerfil();
   if (p.nombre.trim()) return p;
-  const conNombre: Perfil = { nombre: generarNombre(), color: p.color };
+  const conNombre: Perfil = { ...p, nombre: generarNombre() };
   savePerfil(conNombre);
   return conNombre;
 }

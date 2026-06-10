@@ -25,16 +25,16 @@ export function useEventToasts() {
 
 export function EventToasts({ toasts }: { toasts: ToastItem[] }) {
   return (
-    <div className="pointer-events-none fixed left-1/2 top-16 z-50 flex w-max max-w-[90vw] -translate-x-1/2 flex-col items-center gap-1.5">
+    <div className="pointer-events-none fixed bottom-4 left-4 z-50 flex w-max max-w-[85vw] flex-col items-start gap-1.5">
       <AnimatePresence>
         {toasts.map((t) => (
           <motion.div
             key={t.id}
             layout
-            initial={{ opacity: 0, y: -12, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
+            initial={{ opacity: 0, y: 14, x: -8, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
-            className="rounded-2xl bg-white px-4 py-2 text-center text-sm font-extrabold text-[var(--color-navy-deep)] shadow-2xl"
+            className="rounded-2xl bg-white px-4 py-2 text-left text-sm font-extrabold text-[var(--color-navy-deep)] shadow-2xl"
           >
             {t.icon && <span className="mr-1">{t.icon}</span>}
             {t.msg}
