@@ -14,7 +14,7 @@ function hashName(nombre: string): number {
 }
 
 // Pares de color (cuerpo, detalle) inspirados en kits clásicos de selecciones.
-const KITS: ReadonlyArray<readonly [string, string]> = [
+export const KITS: ReadonlyArray<readonly [string, string]> = [
   ["#75AADB", "#ffffff"], // Argentina
   ["#F7C600", "#1E8A4C"], // Brasil
   ["#1E3A8A", "#E11D2A"], // Francia
@@ -32,19 +32,35 @@ const KITS: ReadonlyArray<readonly [string, string]> = [
 ];
 
 export type JerseyPattern = "solid" | "stripes" | "sash" | "halves" | "hoops";
-const PATTERNS: JerseyPattern[] = ["solid", "stripes", "sash", "halves", "hoops"];
+export const PATTERNS: JerseyPattern[] = ["solid", "stripes", "sash", "halves", "hoops"];
 
 export interface Jersey {
   primary: string;
   secondary: string;
   pattern: JerseyPattern;
-  number: number; // dorsal 1..30
+  number: number; // dorsal 1..99
 }
 
-export function jerseyFor(nombre: string): Jersey {
+// Customización opcional elegida por el jugador; cualquier campo ausente o
+// inválido cae al valor derivado del nombre (compatibilidad con perfiles viejos).
+export interface JerseyCustom {
+  kit?: number; // índice en KITS
+  pattern?: JerseyPattern;
+  dorsal?: number; // 1..99
+}
+
+export function jerseyFor(nombre: string, custom?: JerseyCustom | null): Jersey {
   const h = hashName(nombre);
-  const [primary, secondary] = KITS[h % KITS.length];
-  const pattern = PATTERNS[(h >>> 4) % PATTERNS.length];
-  const number = ((h >>> 9) % 30) + 1;
+  const kitIdx =
+    custom?.kit != null && Number.isInteger(custom.kit) && custom.kit >= 0 && custom.kit < KITS.length
+      ? custom.kit
+      : h % KITS.length;
+  const [primary, secondary] = KITS[kitIdx];
+  const pattern =
+    custom?.pattern && PATTERNS.includes(custom.pattern) ? custom.pattern : PATTERNS[(h >>> 4) % PATTERNS.length];
+  const number =
+    custom?.dorsal != null && Number.isInteger(custom.dorsal) && custom.dorsal >= 1 && custom.dorsal <= 99
+      ? custom.dorsal
+      : ((h >>> 9) % 30) + 1;
   return { primary, secondary, pattern, number };
 }

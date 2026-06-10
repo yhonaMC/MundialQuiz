@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Check, Crown, Hand, Lightbulb, Trophy, X, Zap } from "lucide-react";
 import { MemphisBackground } from "@/components/ui/MemphisBackground";
@@ -14,7 +14,7 @@ import { PlayerCard, type Reveal } from "@/components/conexion/PlayerCard";
 import { Board, MAX_ATTEMPTS } from "@/components/incognita/Board";
 import { Keyboard } from "@/components/incognita/Keyboard";
 import { GAMES } from "@/lib/games";
-import { AVATAR_COLORS, ensurePerfil } from "@/lib/perfil";
+import { AVATAR_COLORS, ensurePerfil, type Perfil } from "@/lib/perfil";
 import { sfx } from "@/lib/sound";
 import { useRoom, type Jugador } from "@/lib/multiplayer/useRoom";
 import { buildRound, penalesContinua, scoreFor, TOTAL_ROUNDS, type Round } from "@/lib/multiplayer/rounds";
@@ -27,22 +27,22 @@ const REVEAL_MS = 4500;
 const msFor = (r: Round) => (r.kind === "incognita" ? 60000 : r.kind === "conexion" ? 25000 : r.kind === "penales" ? 20000 : 15000);
 
 type Phase = "play" | "reveal" | "end";
-type Result = (correct: boolean, hinted?: boolean) => void;
+// Devuelve los puntos ganados para que la UI dé feedback inmediato sin esperar al reveal.
+type Result = (correct: boolean, hinted?: boolean) => number;
 
 export default function MatchPage() {
   const params = useParams<{ codigo: string }>();
   const search = useSearchParams();
-  const router = useRouter();
   const codigo = (params.codigo || "").toUpperCase();
   const game = search.get("game") ?? "quiz";
-  const isHost = search.get("host") === "1";
   const desde = Number(search.get("desde")) || 0;
+  // Anfitrión inicial por URL; puede cambiar a mitad de partida si el actual se va.
+  const [isHost, setIsHost] = useState(() => search.get("host") === "1");
 
-  const [perfil, setPerfil] = useState({ nombre: "Tú", color: AVATAR_COLORS[0] });
+  const [perfil, setPerfil] = useState<Perfil>({ nombre: "Tú", color: AVATAR_COLORS[0] });
   useEffect(() => {
-    const p = ensurePerfil();
     // eslint-disable-next-line react-hooks/set-state-in-effect -- init solo-cliente intencional
-    setPerfil({ nombre: p.nombre, color: p.color });
+    setPerfil(ensurePerfil());
   }, []);
 
   const { players, myId, ready, send, onEvent } = useRoom(codigo, perfil, { host: isHost });
@@ -63,9 +63,12 @@ export default function MatchPage() {
 
   // Refs para acceder a estado actual dentro de callbacks/handlers.
   const roundIdxRef = useRef(-1);
+  const phaseRef = useRef<Phase>("play");
   const startTsRef = useRef(0);
   const msRef = useRef(15000);
   const answeredRef = useRef<Set<string>>(new Set());
+  // Marcador acumulado: lo mantienen TODOS los clientes (no solo el anfitrión) para
+  // que cualquiera pueda asumir el liderazgo si el anfitrión se va a mitad de partida.
   const hostScoresRef = useRef<Record<string, number>>({});
   const lastRevealRef = useRef(-1);
   const playersRef = useRef<Jugador[]>([]);
@@ -93,12 +96,11 @@ export default function MatchPage() {
     [game, desde, send],
   );
 
-  const hostReveal = useCallback(
+  // Tras el reveal de la ronda idx, programa la siguiente (o el final). Lo usa el
+  // anfitrión vigente, incluido uno recién promovido a mitad de reveal.
+  const scheduleNext = useCallback(
     (idx: number) => {
-      if (lastRevealRef.current === idx) return;
-      lastRevealRef.current = idx;
-      if (roundTimer.current) clearTimeout(roundTimer.current);
-      send("reveal", { idx, scores: { ...hostScoresRef.current } });
+      if (revealTimer.current) clearTimeout(revealTimer.current);
       revealTimer.current = setTimeout(() => {
         const continua =
           game === "penales"
@@ -114,12 +116,24 @@ export default function MatchPage() {
     [game, send, startRound],
   );
 
+  const hostReveal = useCallback(
+    (idx: number) => {
+      if (lastRevealRef.current === idx) return;
+      lastRevealRef.current = idx;
+      if (roundTimer.current) clearTimeout(roundTimer.current);
+      send("reveal", { idx, scores: { ...hostScoresRef.current } });
+      scheduleNext(idx);
+    },
+    [send, scheduleNext],
+  );
+
   // Manejo de eventos de la sala.
   useEffect(() => {
     onEvent((type, p) => {
       if (type === "round") {
         const idx = Number(p.idx);
         roundIdxRef.current = idx;
+        phaseRef.current = "play";
         startTsRef.current = Date.now();
         msRef.current = Number(p.ms) || 15000;
         answeredRef.current = new Set();
@@ -153,19 +167,22 @@ export default function MatchPage() {
         shotsRef.current = { ...shotsRef.current, [who]: arr };
         setShots(shotsRef.current);
         if (who !== myId) push(`${nameOf(who)} respondió`, { icon: "✋", silent: true });
-        if (isHost) {
-          hostScoresRef.current[who] = (hostScoresRef.current[who] || 0) + Number(p.pts);
-          if (answeredRef.current.size >= playersRef.current.length) hostReveal(roundIdxRef.current);
-        }
+        // Todos acumulan el marcador (ver hostScoresRef); solo el anfitrión decide el reveal.
+        hostScoresRef.current[who] = (hostScoresRef.current[who] || 0) + Number(p.pts);
+        if (isHost && answeredRef.current.size >= playersRef.current.length) hostReveal(roundIdxRef.current);
       } else if (type === "prog") {
         if (Number(p.idx) !== roundIdxRef.current) return;
         progRef.current[String(p.id)] = Number(p.n);
         setProg({ ...progRef.current });
       } else if (type === "reveal") {
         if (Number(p.idx) !== roundIdxRef.current) return;
-        setPhase("reveal");
-        setScores((p.scores as Record<string, number>) || {});
         const rIdx = Number(p.idx);
+        phaseRef.current = "reveal";
+        lastRevealRef.current = rIdx; // un anfitrión promovido no debe re-revelar esta ronda
+        setPhase("reveal");
+        const recibidos = (p.scores as Record<string, number>) || {};
+        hostScoresRef.current = { ...recibidos }; // sincroniza con el marcador autoritativo
+        setScores(recibidos);
         for (const pl of playersRef.current) {
           const id = String(pl.id);
           const arr = [...(shotsRef.current[id] ?? [])];
@@ -176,6 +193,7 @@ export default function MatchPage() {
         }
         setShots(shotsRef.current);
       } else if (type === "end") {
+        phaseRef.current = "end";
         setPhase("end");
         setScores((p.scores as Record<string, number>) || {});
       }
@@ -187,6 +205,7 @@ export default function MatchPage() {
   useEffect(() => {
     if (isHost && ready && !startedRef.current) {
       startedRef.current = true;
+      if (roundIdxRef.current >= 0) return; // promovido con la partida ya en marcha
       const t = setTimeout(() => startRound(0), 1000);
       return () => clearTimeout(t);
     }
@@ -230,11 +249,10 @@ export default function MatchPage() {
     }
   }, [phase, scores, myId, fire]);
 
-  // Avisos de entrada/salida y detección de que el anfitrión se fue.
+  // Avisos de entrada/salida y traspaso de anfitrión si el actual se va a mitad de partida.
   const firstPresenceRef = useRef(true);
   const prevIdsRef = useRef<string[]>([]);
   const hostWasPresentRef = useRef(false);
-  const leavingRef = useRef(false);
   useEffect(() => {
     const curIds = players.map((p) => p.id);
     const hostPresent = players.some((p) => p.host);
@@ -251,32 +269,47 @@ export default function MatchPage() {
         push(`${p.nombre} se unió`, { icon: "👋", silent: true });
       }
     }
-    // El anfitrión (creador) se fue → la sala se acaba para todos.
-    if (!isHost && hostWasPresentRef.current && !hostPresent && curIds.length > 0 && !leavingRef.current) {
-      leavingRef.current = true;
-      push("La sala se cerró: el anfitrión salió", { icon: "⚠️" });
-      sfx.lose();
-      setTimeout(() => router.push("/multijugador"), 1800);
-    } else {
-      // Salidas normales (no anfitrión)
-      for (const id of prevIdsRef.current) {
-        if (!curIds.includes(id) && id !== myId) push(`${nameOf(id)} salió`, { icon: "🚪", silent: true });
+    // Salidas normales
+    for (const id of prevIdsRef.current) {
+      if (!curIds.includes(id) && id !== myId) push(`${nameOf(id)} salió`, { icon: "🚪", silent: true });
+    }
+    // El anfitrión se fue → asciende el jugador más antiguo y retoma el ritmo de la partida.
+    if (hostWasPresentRef.current && !hostPresent && players.length > 0 && phaseRef.current !== "end") {
+      hostWasPresentRef.current = false; // hasta que el nuevo anfitrión aparezca marcado
+      const candidato = players[0];
+      if (candidato.id === myId && !isHost) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- promoción por evento externo (presencia)
+        setIsHost(true);
+        push("👑 Ahora eres el anfitrión", { icon: "👑" });
+        if (roundIdxRef.current < 0) {
+          // El anfitrión se fue antes de arrancar: arranca tú.
+          startRound(0);
+        } else if (phaseRef.current === "play") {
+          const restante = Math.max(400, msRef.current - (Date.now() - startTsRef.current));
+          if (roundTimer.current) clearTimeout(roundTimer.current);
+          roundTimer.current = setTimeout(() => hostReveal(roundIdxRef.current), restante);
+        } else if (phaseRef.current === "reveal") {
+          scheduleNext(roundIdxRef.current);
+        }
+      } else if (candidato.id !== myId) {
+        push(`${nameOf(candidato.id)} es el nuevo anfitrión`, { icon: "👑", silent: true });
       }
     }
-    prevIdsRef.current = curIds;
     if (hostPresent) hostWasPresentRef.current = true;
-  }, [players, myId, isHost, push, router, codigo, nameOf]);
+    prevIdsRef.current = curIds;
+  }, [players, myId, isHost, push, nameOf, startRound, hostReveal, scheduleNext]);
 
-  // Registrar respuesta del jugador.
+  // Registrar respuesta del jugador. Devuelve los puntos para feedback inmediato.
   const responder = useCallback<Result>(
     (correct, hinted = false) => {
-      if (myDone) return;
+      if (myDone) return 0;
       let pts = game === "penales" ? (correct ? 1 : 0) : scoreFor(correct, Date.now() - startTsRef.current, msRef.current);
       if (hinted && game !== "penales") pts = Math.round(pts * 0.5); // la pista resta puntos
       setMyDone(true);
       if (correct) sfx.correct();
       else sfx.wrong();
       send("ans", { idx: roundIdxRef.current, id: myId, correct, pts });
+      return pts;
     },
     [game, myDone, myId, send],
   );
@@ -312,7 +345,7 @@ export default function MatchPage() {
               style={{ backgroundColor: i === 0 ? "color-mix(in srgb, var(--color-green) 25%, transparent)" : "rgba(255,255,255,0.05)" }}
             >
               <span className="w-5 text-center font-black">{i + 1}</span>
-              <JerseyAvatar nombre={p.nombre} size={34} ring={p.color} />
+              <JerseyAvatar nombre={p.nombre} jersey={p.jersey} size={34} ring={p.color} />
               <span className="font-extrabold">{p.nombre}</span>
               {i === 0 && <Crown className="h-4 w-4 text-[var(--color-amber)]" />}
               <span className="ml-auto font-black tabular-nums text-[var(--color-green)]">
@@ -380,11 +413,12 @@ export default function MatchPage() {
           }
           return (
             <span key={p.id} className="flex items-center gap-2 rounded-2xl bg-white/5 py-1 pl-1 pr-3 ring-1 ring-white/10">
-              <JerseyAvatar nombre={p.nombre} size={30} ring={p.color} dim={phase === "play" && !yaRespondio} />
+              <JerseyAvatar nombre={p.nombre} jersey={p.jersey} size={30} ring={p.color} dim={phase === "play" && !yaRespondio} />
               <span className="flex flex-col leading-tight">
                 <span className="flex items-center gap-1 text-[11px] font-black">
                   {p.id === myId ? "Tú" : p.nombre.length > 8 ? p.nombre.slice(0, 8) + "…" : p.nombre}
                   <span className="tabular-nums text-[var(--color-green)]">{p.pts}</span>
+                  {p.host && <Crown className="h-3 w-3 text-[var(--color-amber)]" />}
                 </span>
                 <span className="text-[10px] font-bold" style={{ color: estadoColor }}>{estado}</span>
               </span>
@@ -422,6 +456,26 @@ function PistaBtn({ hint, shown, onShow }: { hint?: string; shown: boolean; onSh
   );
 }
 
+// Feedback inmediato al responder: no esperamos al reveal para celebrar (o lamentar).
+function FeedbackRespuesta({ ok, pts, esperando }: { ok: boolean; pts: number; esperando: boolean }) {
+  return (
+    <motion.div
+      initial={{ scale: 0.3, opacity: 0, y: 10 }}
+      animate={{ scale: 1, opacity: 1, y: 0 }}
+      transition={{ type: "spring", stiffness: 340, damping: 14 }}
+      className="flex flex-col items-center gap-0.5"
+    >
+      <span
+        className="flex items-center gap-2 text-2xl font-black uppercase italic"
+        style={{ color: ok ? "var(--color-green)" : "var(--color-red)" }}
+      >
+        {ok ? <><Check className="h-6 w-6" strokeWidth={3} /> ¡Correcto! {pts > 0 && `+${pts}`}</> : <><X className="h-6 w-6" strokeWidth={3} /> ¡Fallaste!</>}
+      </span>
+      {esperando && <span className="text-xs font-bold text-[var(--color-gray-light)]/70">esperando a los rivales…</span>}
+    </motion.div>
+  );
+}
+
 // ---- Render de cada tipo de ronda ----
 function RoundView({ round, phase, myDone, onResult, onProgress, players, shots, roundIdx, myId }: { round: Round; phase: Phase; myDone: boolean; onResult: Result; onProgress: (n: number) => void; players: Jugador[]; shots: Record<string, boolean[]>; roundIdx: number; myId: string }) {
   if (round.kind === "penales") return <PenalesView round={round} phase={phase} myDone={myDone} onResult={onResult} players={players} shots={shots} roundIdx={roundIdx} myId={myId} />;
@@ -434,15 +488,17 @@ function PenalesView({ round, phase, myDone, onResult, players, shots, roundIdx,
   const [pick, setPick] = useState<number | null>(null);
   const [hint, setHint] = useState(false);
   const reveal = phase === "reveal";
+  const show = reveal || pick !== null; // feedback inmediato: en cuanto tiras, ves el resultado
   const totalDots = Math.max(TOTAL_ROUNDS, roundIdx + 1);
   const click = (i: number) => {
-    if (myDone || reveal) return;
+    if (myDone || reveal || pick !== null) return;
     setPick(i);
     onResult(i === round.answer, hint);
   };
   const myGoal = pick !== null && pick === round.answer;
   return (
-    <div className="flex w-full max-w-md flex-col items-center gap-4">
+    <div className="relative flex w-full max-w-md flex-col items-center gap-4">
+      {myGoal && <Confetti pieces={36} />}
       {/* Marcador de la tanda */}
       <div className="flex w-full flex-col gap-2 rounded-2xl bg-[var(--color-navy)] p-3 ring-1 ring-white/10">
         {roundIdx >= TOTAL_ROUNDS && (
@@ -450,7 +506,7 @@ function PenalesView({ round, phase, myDone, onResult, players, shots, roundIdx,
         )}
         {players.map((pl) => (
           <div key={pl.id} className="flex items-center gap-2">
-            <JerseyAvatar nombre={pl.nombre} size={24} ring={pl.color} />
+            <JerseyAvatar nombre={pl.nombre} jersey={pl.jersey} size={24} ring={pl.color} />
             <div className="flex flex-wrap gap-1">
               {Array.from({ length: totalDots }).map((_, i) => {
                 const shot = shots[pl.id]?.[i];
@@ -472,41 +528,51 @@ function PenalesView({ round, phase, myDone, onResult, players, shots, roundIdx,
 
       {round.sub && <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black uppercase">{round.sub}</span>}
       <h2 className="text-center text-xl font-black leading-tight">{round.prompt}</h2>
-      {!reveal && !myDone && <PistaBtn hint={round.hint} shown={hint} onShow={() => setHint(true)} />}
+      {!show && !myDone && <PistaBtn hint={round.hint} shown={hint} onShow={() => setHint(true)} />}
       <div className="grid w-full gap-2.5">
         {round.options.map((op, i) => {
           let bg = "rgba(255,255,255,0.1)";
           let fg = "#fff";
-          if (reveal && i === round.answer) { bg = "var(--color-green)"; fg = "var(--color-navy-deep)"; }
-          else if (reveal && i === pick) { bg = "var(--color-red)"; }
+          if (show && i === round.answer) { bg = "var(--color-green)"; fg = "var(--color-navy-deep)"; }
+          else if (show && i === pick) { bg = "var(--color-red)"; }
           return (
-            <motion.button key={i} onClick={() => click(i)} disabled={myDone || reveal} whileTap={!myDone && !reveal ? { scale: 0.97 } : undefined} style={{ backgroundColor: bg, color: fg }} className="rounded-2xl px-5 py-3 text-left font-extrabold ring-1 ring-white/10 disabled:opacity-90">
+            <motion.button key={i} onClick={() => click(i)} disabled={myDone || reveal || pick !== null} whileTap={!myDone && !reveal && pick === null ? { scale: 0.97 } : undefined} style={{ backgroundColor: bg, color: fg }} className="rounded-2xl px-5 py-3 text-left font-extrabold ring-1 ring-white/10 disabled:opacity-90">
               {op}
             </motion.button>
           );
         })}
       </div>
-      {reveal && pick !== null && (
-        <p className="flex items-center justify-center gap-2 text-2xl font-black uppercase italic" style={{ color: myGoal ? "var(--color-green)" : "var(--color-red)" }}>
+      {pick !== null && (
+        <motion.p
+          initial={{ scale: 0.3, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 340, damping: 13 }}
+          className="flex items-center justify-center gap-2 text-2xl font-black uppercase italic"
+          style={{ color: myGoal ? "var(--color-green)" : "var(--color-red)" }}
+        >
           {myGoal ? <><Check className="h-6 w-6" /> ¡GOOOL!</> : <><Hand className="h-6 w-6" /> ¡Atajado!</>}
-        </p>
+        </motion.p>
       )}
-      {myDone && phase === "play" && <p className="text-sm font-bold text-[var(--color-gray-light)]/70">¡Penal tirado! esperando…</p>}
+      {pick !== null && phase === "play" && <p className="text-xs font-bold text-[var(--color-gray-light)]/70">esperando a los rivales…</p>}
     </div>
   );
 }
 
 function OptionsView({ round, phase, myDone, onResult }: { round: Extract<Round, { kind: "options" }>; phase: Phase; myDone: boolean; onResult: Result }) {
   const [pick, setPick] = useState<number | null>(null);
+  const [gained, setGained] = useState(0);
   const [hint, setHint] = useState(false);
   const reveal = phase === "reveal";
+  const show = reveal || pick !== null; // feedback inmediato al responder
   const click = (i: number) => {
-    if (myDone || reveal) return;
+    if (myDone || reveal || pick !== null) return;
     setPick(i);
-    onResult(i === round.answer, hint);
+    setGained(onResult(i === round.answer, hint));
   };
+  const acerte = pick !== null && pick === round.answer;
   return (
-    <div className="flex w-full max-w-md flex-col items-center gap-4">
+    <div className="relative flex w-full max-w-md flex-col items-center gap-4">
+      {acerte && <Confetti pieces={36} />}
       {round.sub && <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black uppercase">{round.sub}</span>}
       {round.foto && (
         <div className="h-40 w-40 overflow-hidden rounded-3xl bg-white/5 ring-1 ring-white/10">
@@ -515,21 +581,21 @@ function OptionsView({ round, phase, myDone, onResult }: { round: Extract<Round,
         </div>
       )}
       {round.prompt && <h2 className="text-center text-xl font-black leading-tight">{round.prompt}</h2>}
-      {!reveal && !myDone && <PistaBtn hint={round.hint} shown={hint} onShow={() => setHint(true)} />}
+      {!show && !myDone && <PistaBtn hint={round.hint} shown={hint} onShow={() => setHint(true)} />}
       <div className="grid w-full gap-2.5">
         {round.options.map((op, i) => {
           let bg = "rgba(255,255,255,0.1)";
           let fg = "#fff";
-          if (reveal && i === round.answer) { bg = "var(--color-green)"; fg = "var(--color-navy-deep)"; }
-          else if (reveal && i === pick) { bg = "var(--color-red)"; }
+          if (show && i === round.answer) { bg = "var(--color-green)"; fg = "var(--color-navy-deep)"; }
+          else if (show && i === pick) { bg = "var(--color-red)"; }
           return (
-            <motion.button key={i} onClick={() => click(i)} disabled={myDone || reveal} whileTap={!myDone && !reveal ? { scale: 0.97 } : undefined} style={{ backgroundColor: bg, color: fg }} className="rounded-2xl px-5 py-3 text-left font-extrabold ring-1 ring-white/10 disabled:opacity-90">
+            <motion.button key={i} onClick={() => click(i)} disabled={myDone || reveal || pick !== null} whileTap={!myDone && !reveal && pick === null ? { scale: 0.97 } : undefined} style={{ backgroundColor: bg, color: fg }} className="rounded-2xl px-5 py-3 text-left font-extrabold ring-1 ring-white/10 disabled:opacity-90">
               {op}
             </motion.button>
           );
         })}
       </div>
-      {myDone && phase === "play" && <p className="text-sm font-bold text-[var(--color-gray-light)]/70">¡Respondido! esperando…</p>}
+      {pick !== null && <FeedbackRespuesta ok={acerte} pts={gained} esperando={phase === "play"} />}
     </div>
   );
 }
@@ -537,9 +603,12 @@ function OptionsView({ round, phase, myDone, onResult }: { round: Extract<Round,
 function ConexionView({ round, phase, myDone, onResult }: { round: Extract<Round, { kind: "conexion" }>; phase: Phase; myDone: boolean; onResult: Result }) {
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [hint, setHint] = useState(false);
+  const [resultado, setResultado] = useState<boolean | null>(null); // mi acierto, en cuanto compruebo
+  const [gained, setGained] = useState(0);
   const reveal = phase === "reveal";
+  const show = reveal || resultado !== null; // feedback inmediato al comprobar
   const toggle = (id: string) => {
-    if (myDone || reveal) return;
+    if (myDone || show) return;
     setSel((prev) => {
       const n = new Set(prev);
       if (n.has(id)) n.delete(id);
@@ -548,31 +617,33 @@ function ConexionView({ round, phase, myDone, onResult }: { round: Extract<Round
     });
   };
   const comprobar = () => {
-    if (myDone || sel.size !== 3) return;
+    if (myDone || show || sel.size !== 3) return;
     const ok = round.correct.every((id) => sel.has(id)) && sel.size === round.correct.length;
-    onResult(ok, hint);
+    setResultado(ok);
+    setGained(onResult(ok, hint));
   };
   const revealOf = (id: string): Reveal => {
-    if (!reveal) return "none";
+    if (!show) return "none";
     if (round.correct.includes(id)) return "match";
     return sel.has(id) ? "wrong" : "none";
   };
   return (
-    <div className="flex w-full max-w-md flex-col items-center gap-3">
+    <div className="relative flex w-full max-w-md flex-col items-center gap-3">
+      {resultado === true && <Confetti pieces={36} />}
       <p className="text-center text-sm text-[var(--color-gray-light)]/80">Elige los <b className="text-white">3</b> que comparten algo</p>
-      {!reveal && !myDone && <PistaBtn hint={round.hint} shown={hint} onShow={() => setHint(true)} />}
+      {!show && !myDone && <PistaBtn hint={round.hint} shown={hint} onShow={() => setHint(true)} />}
       <div className="grid w-full grid-cols-3 gap-2.5">
         {round.cards.map((c) => (
-          <PlayerCard key={c.id} player={{ id: c.id, nombre: c.nombre, paisEs: c.paisEs, posicion: c.posicion as Player["posicion"], foto: c.foto ? { archivo: c.foto, autor: "", licencia: "", fuente: "" } : undefined } as Player} selected={sel.has(c.id)} reveal={revealOf(c.id)} disabled={myDone || reveal} onToggle={() => toggle(c.id)} />
+          <PlayerCard key={c.id} player={{ id: c.id, nombre: c.nombre, paisEs: c.paisEs, posicion: c.posicion as Player["posicion"], foto: c.foto ? { archivo: c.foto, autor: "", licencia: "", fuente: "" } : undefined } as Player} selected={sel.has(c.id)} reveal={revealOf(c.id)} disabled={myDone || show} onToggle={() => toggle(c.id)} />
         ))}
       </div>
-      {reveal && <p className="text-sm font-bold text-[var(--color-green)]">{round.label}</p>}
-      {!reveal && !myDone && (
+      {show && <p className="text-sm font-bold text-[var(--color-green)]">{round.label}</p>}
+      {!show && !myDone && (
         <button onClick={comprobar} disabled={sel.size !== 3} className="rounded-2xl bg-[var(--color-green)] px-6 py-3 font-black uppercase italic text-[var(--color-navy-deep)] disabled:opacity-40">
           Comprobar ({sel.size}/3)
         </button>
       )}
-      {myDone && !reveal && <p className="text-sm font-bold text-[var(--color-gray-light)]/70">¡Listo! esperando…</p>}
+      {resultado !== null && <FeedbackRespuesta ok={resultado} pts={gained} esperando={phase === "play"} />}
     </div>
   );
 }
@@ -581,6 +652,8 @@ function IncognitaView({ round, phase, myDone, onResult, onProgress }: { round: 
   const [guesses, setGuesses] = useState<string[]>([]);
   const [current, setCurrent] = useState("");
   const [done, setDone] = useState(false);
+  const [resultado, setResultado] = useState<boolean | null>(null);
+  const [gained, setGained] = useState(0);
   const [aviso, setAviso] = useState<string | null>(null);
   const word = round.word;
 
@@ -609,9 +682,10 @@ function IncognitaView({ round, phase, myDone, onResult, onProgress }: { round: 
     const won = normalize(current) === word;
     if (won || next.length >= MAX_ATTEMPTS) {
       setDone(true);
+      setResultado(won);
       if (won) sfx.win();
       else sfx.lose();
-      onResult(won);
+      setGained(onResult(won));
     } else {
       sfx.tap();
     }
@@ -633,14 +707,15 @@ function IncognitaView({ round, phase, myDone, onResult, onProgress }: { round: 
 
   const blocked = done || myDone || phase === "reveal";
   return (
-    <div className="flex w-full max-w-md flex-col items-center gap-3">
+    <div className="relative flex w-full max-w-md flex-col items-center gap-3">
+      {resultado === true && <Confetti pieces={36} />}
       <span className="rounded-full bg-white/10 px-4 py-1 text-sm font-bold text-[var(--color-gray-light)]">{round.hint}</span>
       {aviso && <span className="rounded-xl bg-white px-3 py-1 text-sm font-extrabold text-[var(--color-navy-deep)]">{aviso}</span>}
       <Board answer={word} guesses={guesses} current={current} />
       {phase === "reveal" ? (
         <p className="text-sm font-bold">La palabra era <b className="text-[var(--color-green)]">{word}</b></p>
       ) : done ? (
-        <p className="text-sm font-bold text-[var(--color-gray-light)]/70">¡Listo! esperando…</p>
+        <FeedbackRespuesta ok={resultado === true} pts={gained} esperando />
       ) : (
         <Keyboard
           states={keyboardState(guesses, word)}
