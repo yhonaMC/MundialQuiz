@@ -1,8 +1,8 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
+import { useParams } from "next/navigation";
+import { AnimatePresence } from "framer-motion";
 import { Crown, Flag, Timer, Trophy } from "lucide-react";
 import { MemphisBackground } from "@/components/ui/MemphisBackground";
 import { Confetti } from "@/components/ui/Confetti";
@@ -10,9 +10,10 @@ import { JerseyAvatar } from "@/components/ui/JerseyAvatar";
 import { Loader } from "@/components/ui/Loader";
 import { Grid } from "@/components/rejilla/Grid";
 import { Buscador } from "@/components/rejilla/Buscador";
-import { AVATAR_COLORS, loadPerfil } from "@/lib/perfil";
+import { AVATAR_COLORS, ensurePerfil, type Perfil } from "@/lib/perfil";
 import type { Player } from "@/lib/db/types";
 import { useRoom } from "@/lib/multiplayer/useRoom";
+import { claimHost, isClaimedHost } from "@/lib/multiplayer/hostClaim";
 import { createRng } from "@/lib/engine/rng";
 import { generarRejilla, K_POR_DIFICULTAD, type Rejilla } from "@/lib/rejilla/generate";
 import {
@@ -41,16 +42,17 @@ interface EstadoJugador {
 
 export default function RejillaMatchPage() {
   const params = useParams<{ codigo: string }>();
-  const search = useSearchParams();
   const codigo = (params.codigo || "").toUpperCase();
-  const isHost = search.get("host") === "1";
+  // Anfitrión por reclamo en sessionStorage (ver hostClaim.ts), nunca por URL.
+  const [isHost, setIsHost] = useState(false);
 
-  const [perfil, setPerfil] = useState({ nombre: "Tú", color: AVATAR_COLORS[0] });
+  const [perfil, setPerfil] = useState<Perfil>({ nombre: "Tú", color: AVATAR_COLORS[0] });
   useEffect(() => {
-    const p = loadPerfil();
     // eslint-disable-next-line react-hooks/set-state-in-effect -- init solo-cliente intencional
-    setPerfil({ nombre: p.nombre || "Tú", color: p.color });
-  }, []);
+    setPerfil(ensurePerfil());
+     
+    setIsHost(isClaimedHost(codigo));
+  }, [codigo]);
 
   const { players, myId, ready, send, onEvent } = useRoom(codigo, perfil, { host: isHost });
 
@@ -137,6 +139,22 @@ export default function RejillaMatchPage() {
     }
   }, [isHost, ready, send]);
 
+  // Si el anfitrión se va antes de arrancar, asciende el jugador más antiguo y arranca él.
+  const hostSeenRef = useRef(false);
+  useEffect(() => {
+    const hostPresent = players.some((p) => p.host);
+    if (hostPresent) {
+      hostSeenRef.current = true;
+      return;
+    }
+    if (hostSeenRef.current && players.length > 0 && players[0].id === myId && !isHost && !grilla) {
+      hostSeenRef.current = false;
+       
+      setIsHost(true);
+      claimHost(codigo);
+    }
+  }, [players, myId, isHost, grilla, codigo]);
+
   // Cuenta atrás de la partida; al agotarse, se cierra automáticamente mi grilla.
   useEffect(() => {
     if (!grilla) return;
@@ -216,7 +234,7 @@ export default function RejillaMatchPage() {
               style={{ backgroundColor: i === 0 ? "color-mix(in srgb, var(--color-cyan) 25%, transparent)" : "rgba(255,255,255,0.05)" }}
             >
               <span className="w-5 text-center font-black">{i + 1}</span>
-              <JerseyAvatar nombre={p.nombre} size={34} ring={p.color} />
+              <JerseyAvatar nombre={p.nombre} jersey={p.jersey} size={34} ring={p.color} />
               <span className="font-extrabold">{p.id === myId ? "Tú" : p.nombre}</span>
               {i === 0 && <Crown className="h-4 w-4 text-[var(--color-amber)]" />}
               <span className="ml-auto flex items-center gap-2 font-black tabular-nums">
@@ -227,7 +245,7 @@ export default function RejillaMatchPage() {
           ))}
         </div>
         <Link
-          href={`/sala/${codigo}${isHost ? "?host=1" : ""}`}
+          href={`/sala/${codigo}`}
           className="mt-2 rounded-2xl bg-[var(--color-cyan)] px-7 py-3 font-black uppercase italic text-[var(--color-navy-deep)] shadow-[0_6px_0_0_#1a8a98]"
         >
           Volver a la sala
@@ -241,7 +259,7 @@ export default function RejillaMatchPage() {
       <MemphisBackground />
 
       <div className="flex w-full max-w-md items-center justify-between gap-2">
-        <Link href={`/sala/${codigo}${isHost ? "?host=1" : ""}`} className="text-xs font-bold text-[var(--color-gray-light)]/70 hover:text-white">
+        <Link href={`/sala/${codigo}`} className="text-xs font-bold text-[var(--color-gray-light)]/70 hover:text-white">
           Salir
         </Link>
         <span className="flex items-center gap-1 text-sm font-extrabold tabular-nums" style={{ color: barColor }}>
@@ -249,16 +267,19 @@ export default function RejillaMatchPage() {
         </span>
       </div>
 
-      {/* Barra de tiempo */}
+      {/* Barra de tiempo (transición CSS para que el avance se vea fluido) */}
       <div className="h-2 w-full max-w-md overflow-hidden rounded-full bg-white/10">
-        <motion.div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: barColor }} transition={{ ease: "linear" }} />
+        <div
+          className="h-full rounded-full"
+          style={{ width: `${pct}%`, backgroundColor: barColor, transition: "width 270ms linear, background-color 400ms ease" }}
+        />
       </div>
 
       {/* Marcador en vivo */}
       <div className="flex w-full max-w-md flex-wrap justify-center gap-2">
         {ranking.map((p) => (
           <span key={p.id} className="flex items-center gap-2 rounded-2xl bg-white/5 py-1 pl-1 pr-3 ring-1 ring-white/10">
-            <JerseyAvatar nombre={p.nombre} size={28} ring={p.color} dim={!p.e || (p.e.resueltas === 0 && !p.e.fin)} />
+            <JerseyAvatar nombre={p.nombre} jersey={p.jersey} size={28} ring={p.color} dim={!p.e || (p.e.resueltas === 0 && !p.e.fin)} />
             <span className="flex flex-col leading-tight">
               <span className="flex items-center gap-1 text-[11px] font-black">
                 {p.id === myId ? "Tú" : p.nombre.length > 8 ? p.nombre.slice(0, 8) + "…" : p.nombre}
